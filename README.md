@@ -3,7 +3,37 @@
 <img width="640" height="360" alt="claudecartographer" src="https://github.com/user-attachments/assets/542818c6-fc2b-41a6-915d-cf196447f346" />
 
 
-A Claude Code plugin that maps and documents codebases of any size using parallel AI subagents.
+A standalone Cartographer CLI plus Claude Code plugin for mapping and navigating codebases.
+
+Cartographer v2 adds a graph-first CLI for agents: index a repo, query task slices, inspect impact, generate preflight context, audit semantic annotations, and score whether agents used graph context before editing.
+
+## CLI
+
+Install dependencies:
+
+```bash
+bun install
+```
+
+Run the CLI:
+
+```bash
+bun run cartographer -- --help
+bun run cartographer:index -- --root . --out docs/codegraph
+bun run cartographer:view -- --out docs/codegraph
+bun run cartographer:preflight -- --root . --path src/index.ts --out docs/codegraph
+```
+
+Core commands:
+
+- `index` - build `schema.json`, `manifest.json`, `graph.json`, and `CODEBASE_MAP.md`.
+- `view` - summarize an existing graph.
+- `slice` - show a bounded graph slice for a selector.
+- `impact` - show downstream impact for a path or node id.
+- `context` - combine slice and impact context for planning.
+- `preflight` - emit compact graph context before an agent edit.
+- `adoption` - score graph-first behavior from runtime traces.
+- `annotate` / `annotations` - generate and audit semantic overlay notes.
 
 ## Installation
 

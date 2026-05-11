@@ -1,0 +1,47 @@
+{
+	"name": "@kingbootoshi/cartographer",
+	"version": "0.1.0",
+	"description": "Standalone Cartographer code graph CLI and agent navigation tooling",
+	"license": "Apache-2.0",
+	"type": "module",
+	"module": "src/index.ts",
+	"bin": {
+		"cartographer": "src/cli/index.ts"
+	},
+	"files": [
+		"src/",
+		"plugins/",
+		"docs/",
+		"README.md",
+		"LICENSE"
+	],
+	"exports": {
+		".": "./src/index.ts",
+		"./code-graph": "./src/code-graph/index.ts"
+	},
+	"scripts": {
+		"cartographer": "bun run src/cli/index.ts",
+		"cartographer:index": "bun run src/cli/index.ts index",
+		"cartographer:update": "bun run src/cli/index.ts update",
+		"cartographer:view": "bun run src/cli/index.ts view",
+		"cartographer:slice": "bun run src/cli/index.ts slice",
+		"cartographer:impact": "bun run src/cli/index.ts impact",
+		"cartographer:context": "bun run src/cli/index.ts context",
+		"cartographer:preflight": "bun run src/cli/index.ts preflight",
+		"cartographer:adoption": "bun run src/cli/index.ts adoption",
+		"cartographer:annotate": "bun run src/cli/index.ts annotate",
+		"cartographer:annotations": "bun run src/cli/index.ts annotations",
+		"typecheck": "tsc --noEmit",
+		"test": "bun test src/code-graph"
+	},
+	"dependencies": {
+		"zod": "4.3.6"
+	},
+	"devDependencies": {
+		"@types/bun": "1.3.13",
+		"typescript": "5.8.3"
+	},
+	"peerDependencies": {
+		"typescript": "5.8.3"
+	}
+}

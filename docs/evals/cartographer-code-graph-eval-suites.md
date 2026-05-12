@@ -389,15 +389,29 @@ Current generated reports:
 - `docs/reports/cartographer-code-graph-codex-2026-05-12T23-16-49-362Z.json`
 - `docs/reports/cartographer-code-graph-smoke-2026-05-12T23-20-04-229Z.json`
 - `docs/reports/cartographer-code-graph-codex-2026-05-12T23-20-04-228Z.json`
+- `docs/reports/cartographer-code-graph-smoke-2026-05-12T23-28-22-323Z.json`
+- `docs/reports/cartographer-code-graph-codex-2026-05-12T23-28-22-322Z.json`
+- `docs/reports/cartographer-code-graph-smoke-2026-05-12T23-29-36-478Z.json`
+- `docs/reports/cartographer-code-graph-codex-2026-05-12T23-29-36-478Z.json`
+- `docs/reports/cartographer-code-graph-smoke-2026-05-12T23-33-08-547Z.json`
+- `docs/reports/cartographer-code-graph-codex-2026-05-12T23-33-08-629Z.json`
+- `docs/reports/cartographer-code-graph-smoke-2026-05-12T23-34-49-148Z.json`
+- `docs/reports/cartographer-code-graph-codex-2026-05-12T23-34-49-149Z.json`
+- `docs/reports/cartographer-code-graph-smoke-2026-05-12T23-36-22-735Z.json`
+- `docs/reports/cartographer-code-graph-codex-2026-05-12T23-36-22-749Z.json`
+- `docs/reports/cartographer-code-graph-smoke-2026-05-12T23-37-52-581Z.json`
+- `docs/reports/cartographer-code-graph-codex-2026-05-12T23-37-52-604Z.json`
 
 Latest smoke report:
 
 - status: `passed`, suites: `graph-contract:self`, `graph-contract:ark`, `brief-packet:self`, `removal-audit:fixture`, `notes-lifecycle:fixture`, `monorepo-scale:fixture`, `ark-preflight`, failures: 0
+- Latest graph contract suites run 10 checks each, including `symbols-are-typed-facts`, which verifies 0 symbol graph nodes and 0 `DEFINES` edges while preserving typed symbol facts, `provenance-confidence-vocabulary`, which rejects legacy `deterministic` confidence and requires the precise v2 vocabulary, and `manifest-default-provenance`, which verifies snapshot-level default provenance is recorded. The SQLite artifact compatibility check now also covers the default v2 output layout, including `notes.jsonl`, `briefs/`, `audits/`, `reports/`, and `exports/`.
+- The removal audit command test now verifies `audit verify` uses a live graph by default by adding a leftover file after ledger creation and asserting verification catches it.
 
 Latest recorded Codex trace report:
 
 - status: `passed`, suites: `graph-contract:self`, `graph-contract:ark`, `brief-packet:self`, `removal-audit:fixture`, `notes-lifecycle:fixture`, `monorepo-scale:fixture`, `ark-preflight`, `codex-trace-adoption`, `codex-trace-outcomes`, failures: 0
-- Graph contract suites now include SQLite artifact compatibility checks in addition to in-memory graph schema checks.
+- Graph contract suites now include SQLite artifact compatibility checks, symbol schema-diet checks, provenance confidence-vocabulary checks, and manifest default-provenance checks in addition to in-memory graph schema checks.
 - Recorded traces include `baseline-direct`, `cartographer-brief`, and `cartographer-brief-plus-audit` conditions.
 - The Supabase removal comparison now requires a passing `audit-evidence-lift` check for `cartographer-brief-plus-audit`.
 

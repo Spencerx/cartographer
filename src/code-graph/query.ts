@@ -75,6 +75,8 @@ export function impactGraph(graph: CodeGraphSnapshot, path: string, options: Imp
 
 function impactTargetFor(path: string): string {
 	const normalized = path.replace(/^\.\//, "");
+	const symbolPath = symbolSelectorPath(normalized);
+	if (symbolPath !== undefined) return symbolPath;
 	return normalized.startsWith("path:") ? normalized.slice("path:".length) : normalized;
 }
 
@@ -752,6 +754,8 @@ function selectNodes(graph: CodeGraphSnapshot, selector: string): readonly CodeG
 	if (selector === "all") return graph.nodes;
 	const packageValue = packageSelectorValue(selector);
 	if (packageValue !== undefined) return selectPackageNodes(graph, packageValue);
+	const symbolValue = symbolSelectorValue(selector);
+	if (symbolValue !== undefined) return selectSymbolOwnerNodes(graph, symbolValue);
 	const scopedSelector = scopedSelectorFor(selector);
 	if (scopedSelector !== undefined) return graph.nodes.filter(scopedSelector);
 	const lowered = selector.toLowerCase();
@@ -759,8 +763,63 @@ function selectNodes(graph: CodeGraphSnapshot, selector: string): readonly CodeG
 		(node) =>
 			node.id.toLowerCase().includes(lowered) ||
 			node.label.toLowerCase().includes(lowered) ||
-			node.path?.toLowerCase().includes(lowered),
+			node.path?.toLowerCase().includes(lowered) ||
+			nodeHasSymbolMatch(node, lowered),
 	);
+}
+
+function symbolSelectorValue(selector: string): string | undefined {
+	return selector.startsWith("symbol:") ? selector.slice("symbol:".length) : undefined;
+}
+
+function selectSymbolOwnerNodes(graph: CodeGraphSnapshot, value: string): readonly CodeGraphNode[] {
+	const exactPath = symbolSelectorPath(`symbol:${value}`);
+	const name = symbolSelectorName(value);
+	return graph.nodes.filter((node) => {
+		if (exactPath !== undefined && node.path !== exactPath) return false;
+		return nodeHasSymbolName(node, name);
+	});
+}
+
+function symbolSelectorPath(selector: string): string | undefined {
+	if (!selector.startsWith("symbol:")) return undefined;
+	const value = selector.slice("symbol:".length);
+	const separator = value.lastIndexOf(":");
+	if (separator <= 0) return undefined;
+	const candidate = value.slice(0, separator);
+	return looksLikeFilePath(candidate) ? candidate : undefined;
+}
+
+function symbolSelectorName(value: string): string {
+	const separator = value.lastIndexOf(":");
+	if (separator <= 0) return value;
+	const candidatePath = value.slice(0, separator);
+	return looksLikeFilePath(candidatePath) ? value.slice(separator + 1) : value;
+}
+
+function looksLikeFilePath(value: string): boolean {
+	return value.includes("/") || value.includes(".");
+}
+
+function nodeHasSymbolName(node: CodeGraphNode, name: string): boolean {
+	return symbolMetadata(node).some((symbol) => symbol.name === name);
+}
+
+function nodeHasSymbolMatch(node: CodeGraphNode, lowered: string): boolean {
+	return symbolMetadata(node).some(
+		(symbol) => symbol.name.toLowerCase().includes(lowered) || symbol.kind.toLowerCase().includes(lowered),
+	);
+}
+
+function symbolMetadata(node: CodeGraphNode): readonly { readonly name: string; readonly kind: string }[] {
+	const symbols = node.metadata["symbols"];
+	if (!Array.isArray(symbols)) return [];
+	return symbols.flatMap((value) => {
+		if (!isRecord(value)) return [];
+		const name = value["name"];
+		const kind = value["kind"];
+		return typeof name === "string" && typeof kind === "string" ? [{ name, kind }] : [];
+	});
 }
 
 function sliceRelatedGraph(
@@ -882,7 +941,6 @@ const nodeIdSelectorPrefixes = [
 	"migration:",
 	"repo:",
 	"script:",
-	"symbol:",
 ];
 
 const impactEdgeKinds = new Set<CodeGraphEdge["kind"]>([
@@ -902,3 +960,7 @@ const impactEdgeKinds = new Set<CodeGraphEdge["kind"]>([
 	"RESOURCE_DEPENDS_ON",
 	"AFFECTS",
 ]);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}

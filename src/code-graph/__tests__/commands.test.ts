@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
@@ -25,9 +25,13 @@ describe("runCartographer", () => {
 		expect(await Bun.file(join(outDir, "schema.json")).exists()).toBe(true);
 		expect(await Bun.file(join(outDir, "manifest.json")).exists()).toBe(true);
 		expect(await Bun.file(join(outDir, "graph.sqlite")).exists()).toBe(true);
+		expect(await Bun.file(join(outDir, "notes.jsonl")).exists()).toBe(true);
 		expect(await Bun.file(join(outDir, "schema", "brief.schema.json")).exists()).toBe(true);
 		expect(await Bun.file(join(outDir, "schema", "audit-ledger.schema.json")).exists()).toBe(true);
 		expect(await Bun.file(join(outDir, "schema", "notes.schema.json")).exists()).toBe(true);
+		for (const name of ["briefs", "audits", "reports", "exports"]) {
+			expect((await stat(join(outDir, name))).isDirectory()).toBe(true);
+		}
 		expect(await Bun.file(join(outDir, "graph.json")).exists()).toBe(false);
 		expect(await Bun.file(join(outDir, "CODEBASE_MAP.md")).exists()).toBe(true);
 
@@ -117,6 +121,15 @@ describe("runCartographer", () => {
 			surface: "source",
 			generated: 0,
 		});
+		expect(symbolRows(outDir, "file:src/index.ts")).toEqual([
+			{
+				name: "value",
+				kind: "const",
+				exported: 1,
+				line_start: 1,
+				line_end: 1,
+			},
+		]);
 
 		const reused = runCli(["cartographer", "index", "--root", join(tempDir, "repo"), "--out", outDir]);
 		expect(reused.exitCode).toBe(0);
@@ -162,7 +175,7 @@ describe("runCartographer", () => {
 		expect(nodeIds(slice)).toContain("file:src/index.ts");
 		expect(nodeIds(slice)).toContain("package:.");
 		expect(nodeIds(slice)).toContain("script:.:test");
-		expect(edgeKinds(slice)).toContain("DEFINES");
+		expect(edgeKinds(slice)).not.toContain("DEFINES");
 		expect(packageIds(slice)).toContain("package:.");
 		expect(validationCommandNames(slice)).toContain("test");
 		expectValidationCommand(slice, {
@@ -548,6 +561,8 @@ describe("runCartographer", () => {
 		expect(policyClass?.["status"]).toBe("found");
 		expect(await Bun.file(ledgerPath).exists()).toBe(true);
 
+		await writeFile(join(tempDir, "repo/src/new-supabase-leftover.ts"), "export const marker = 'supabase';\n");
+
 		const verified = runCli([
 			"cartographer",
 			"audit",
@@ -563,6 +578,7 @@ describe("runCartographer", () => {
 		expect(verified.exitCode).not.toBe(0);
 		expect(verified.stderr).toContain("audit verification failed");
 		expect(recordField(verifyLedger, "verdict")["status"]).toBe("failed");
+		expect(JSON.stringify(verifyLedger)).toContain("src/new-supabase-leftover.ts");
 
 		const auditBrief = await runCliJson([
 			"cartographer",
@@ -1078,7 +1094,7 @@ describe("runCartographer", () => {
 		expect(nodeIds(impact)).toContain("file:src/index.ts");
 	});
 
-	test("treats symbol node ids as exact context selectors", async () => {
+	test("treats symbol selectors as exact file-owner context selectors", async () => {
 		const { indexed, outDir } = await indexFixtureRepo();
 		expect(indexed.ok).toBe(true);
 
@@ -1097,8 +1113,8 @@ describe("runCartographer", () => {
 		const slice = recordField(context, "slice");
 
 		expect(context["selector"]).toBe("symbol:src/index.ts:value");
-		expect(nodeIds(slice)).toContain("symbol:src/index.ts:value");
 		expect(nodeIds(slice)).toContain("file:src/index.ts");
+		expect(nodeIds(slice)).not.toContain("symbol:src/index.ts:value");
 	});
 
 	test("requires an OpenRouter key for non-dry-run annotation", async () => {
@@ -1532,6 +1548,26 @@ function fileMembership(outDir: string, path: string): {
 				[string]
 			>("SELECT path, package_node_id, surface, generated FROM file_membership WHERE path = ?")
 			.get(path);
+	} finally {
+		db.close();
+	}
+}
+
+function symbolRows(outDir: string, fileNodeId: string): Array<{
+	readonly name: string;
+	readonly kind: string;
+	readonly exported: number;
+	readonly line_start: number;
+	readonly line_end: number;
+}> {
+	const db = new Database(graphSqlitePath(outDir), { readonly: true, create: false });
+	try {
+		return db
+			.query<
+				{ name: string; kind: string; exported: number; line_start: number; line_end: number },
+				[string]
+			>("SELECT name, kind, exported, line_start, line_end FROM symbols WHERE file_node_id = ? ORDER BY name")
+			.all(fileNodeId);
 	} finally {
 		db.close();
 	}

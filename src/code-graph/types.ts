@@ -7,7 +7,6 @@ export type CodeGraphNodeKind =
 	| "PackageScript"
 	| "File"
 	| "Directory"
-	| "Symbol"
 	| "Doc"
 	| "GeneratedArtifact"
 	| "CiWorkflow"
@@ -26,7 +25,6 @@ export type CodeGraphNodeKind =
 
 export type CodeGraphEdgeKind =
 	| "CONTAINS"
-	| "DEFINES"
 	| "IMPORTS"
 	| "TYPE_IMPORTS"
 	| "EXPORTS"
@@ -59,7 +57,13 @@ export type CodeGraphSource =
 	| "agent-annotation"
 	| "human-review";
 
-export type CodeGraphConfidence = "deterministic" | "compiler-backed" | "agent-inferred" | "human-reviewed";
+export type CodeGraphConfidence =
+	| "exact"
+	| "compiler-backed"
+	| "parser-backed"
+	| "heuristic"
+	| "agent-inferred"
+	| "human-reviewed";
 export type CodeGraphFreshness = "fresh" | "dirty" | "stale" | "unknown";
 
 export interface CodeGraphEvidence {
@@ -77,6 +81,8 @@ export interface CodeGraphProvenance {
 	readonly snapshotCommit?: string | undefined;
 	readonly scannerVersion?: string | undefined;
 }
+
+export type CodeGraphDefaultProvenance = Omit<CodeGraphProvenance, "evidence">;
 
 export interface CodeGraphNode {
 	readonly id: string;
@@ -154,6 +160,7 @@ export interface CodeGraphManifest {
 		readonly findings: number;
 	};
 	readonly ignorePatterns: readonly string[];
+	readonly defaultProvenance: CodeGraphDefaultProvenance;
 }
 
 export interface CodeGraphSnapshot {

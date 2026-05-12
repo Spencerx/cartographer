@@ -85,7 +85,7 @@ function fixtureSlice(): GraphSlice {
 				provenance: {
 					source: "filesystem",
 					evidence: [{ path: "src/index.ts", hash: "fixture-hash" }],
-					confidence: "deterministic",
+					confidence: "exact",
 					freshness: "fresh",
 				},
 			},
@@ -98,7 +98,7 @@ function fixtureSlice(): GraphSlice {
 				provenance: {
 					source: "filesystem",
 					evidence: [{ path: "src/other.ts", hash: "other-hash" }],
-					confidence: "deterministic",
+					confidence: "exact",
 					freshness: "fresh",
 				},
 			},

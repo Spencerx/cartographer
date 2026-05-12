@@ -8,7 +8,6 @@ const nodeKindSchema = z.enum([
 	"PackageScript",
 	"File",
 	"Directory",
-	"Symbol",
 	"Doc",
 	"GeneratedArtifact",
 	"CiWorkflow",
@@ -28,7 +27,6 @@ const nodeKindSchema = z.enum([
 
 const edgeKindSchema = z.enum([
 	"CONTAINS",
-	"DEFINES",
 	"IMPORTS",
 	"TYPE_IMPORTS",
 	"EXPORTS",
@@ -71,11 +69,13 @@ const provenanceSchema = z.object({
 		"human-review",
 	]),
 	evidence: z.array(codeGraphEvidenceSchema),
-	confidence: z.enum(["deterministic", "compiler-backed", "agent-inferred", "human-reviewed"]),
+	confidence: z.enum(["exact", "compiler-backed", "parser-backed", "heuristic", "agent-inferred", "human-reviewed"]),
 	freshness: z.enum(["fresh", "dirty", "stale", "unknown"]),
 	snapshotCommit: z.string().optional(),
 	scannerVersion: z.string().optional(),
 });
+
+const defaultProvenanceSchema = provenanceSchema.omit({ evidence: true });
 
 export const agentAnnotationSchema = z.object({
 	id: z.string(),
@@ -129,6 +129,7 @@ export const codeGraphSnapshotSchema = z.object({
 			findings: z.number().int().nonnegative(),
 		}),
 		ignorePatterns: z.array(z.string()),
+		defaultProvenance: defaultProvenanceSchema,
 	}),
 	nodes: z.array(
 		z.object({

@@ -1,4 +1,4 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { countBy } from "./collections.ts";
 import { CODE_GRAPH_SCHEMA_VERSION } from "./types.ts";
@@ -22,6 +22,7 @@ import type { CodeGraphSnapshot, WriteCodeGraphOptions } from "./types.ts";
 export async function writeCodeGraphArtifacts(graph: CodeGraphSnapshot, options: WriteCodeGraphOptions): Promise<void> {
 	const parsed = codeGraphSnapshotSchema.parse(graph);
 	await mkdir(options.outDir, { recursive: true });
+	await writeArtifactLayout(options.outDir);
 	await writeSchemaArtifacts(options.outDir);
 	await Bun.write(join(options.outDir, "manifest.json"), `${JSON.stringify(parsed.manifest, null, 2)}\n`);
 	await writeSqliteCodeGraph(parsed, options.outDir);
@@ -185,6 +186,7 @@ async function checkRequiredArtifacts(outDir: string, issues: CodeGraphArtifactC
 	for (const name of [
 		"manifest.json",
 		"graph.sqlite",
+		"notes.jsonl",
 		"schema/brief.schema.json",
 		"schema/audit-ledger.schema.json",
 		"schema/notes.schema.json",
@@ -195,6 +197,17 @@ async function checkRequiredArtifacts(outDir: string, issues: CodeGraphArtifactC
 				code: "missing-artifact",
 				severity: "error",
 				message: `missing ${name}`,
+				path,
+			});
+		}
+	}
+	for (const name of ["briefs", "audits", "reports", "exports"] as const) {
+		const path = join(outDir, name);
+		if (!(await isDirectory(path))) {
+			issues.push({
+				code: "missing-artifact",
+				severity: "error",
+				message: `missing ${name}/`,
 				path,
 			});
 		}
@@ -359,4 +372,18 @@ async function writeSchemaArtifacts(outDir: string): Promise<void> {
 	await Bun.write(join(outDir, "schema", "audit-ledger.schema.json"), `${JSON.stringify(auditLedgerJsonSchema(), null, 2)}\n`);
 	await Bun.write(join(outDir, "schema", "notes.schema.json"), `${JSON.stringify(notesJsonSchema(), null, 2)}\n`);
 	await Bun.write(join(outDir, "schema.json"), `${JSON.stringify(codeGraphJsonSchema(), null, 2)}\n`);
+}
+
+async function writeArtifactLayout(outDir: string): Promise<void> {
+	await Promise.all(["briefs", "audits", "reports", "exports"].map((name) => mkdir(join(outDir, name), { recursive: true })));
+	const notesPath = join(outDir, "notes.jsonl");
+	if (!(await Bun.file(notesPath).exists())) await Bun.write(notesPath, "");
+}
+
+async function isDirectory(path: string): Promise<boolean> {
+	try {
+		return (await stat(path)).isDirectory();
+	} catch {
+		return false;
+	}
 }

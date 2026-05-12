@@ -38,6 +38,12 @@ describe("code graph contract", () => {
 				},
 				totals: { files: 1, packages: 1, nodes: 1, edges: 0, findings: 0 },
 				ignorePatterns: [...DEFAULT_IGNORE_PATTERNS],
+				defaultProvenance: {
+					source: "syntax",
+					confidence: "parser-backed",
+					freshness: "fresh",
+					scannerVersion: "0.1.0",
+				},
 			},
 			nodes: [
 				{
@@ -49,7 +55,7 @@ describe("code graph contract", () => {
 					provenance: {
 						source: "filesystem",
 						evidence: [{ path: "src/index.ts", startLine: 1, endLine: 1, hash: undefined }],
-						confidence: "deterministic",
+						confidence: "exact",
 						freshness: "dirty",
 						snapshotCommit: undefined,
 						scannerVersion: "0.1.0",

@@ -219,6 +219,7 @@ async function runBrief(args: ParsedArgs): Promise<Result<void, HarnessError>> {
 			mode: modeFlag(args),
 			path: optionalFlagString(args, "path"),
 			packageId: optionalFlagString(args, "package"),
+			symbol: optionalFlagString(args, "symbol"),
 			env: optionalFlagString(args, "env"),
 			db: optionalFlagString(args, "db"),
 			iac: optionalFlagString(args, "iac"),
@@ -303,9 +304,10 @@ async function runRemovalAudit(args: ParsedArgs): Promise<Result<void, HarnessEr
 }
 
 async function runAuditVerify(args: ParsedArgs): Promise<Result<void, HarnessError>> {
-	const graph = await loadBaseGraph(args);
 	const ledgerPath = requiredFlag(args, "ledger", "usage: cartographer audit verify --ledger .cartographer/audits/<id>.json");
-	const verified = await verifyRemovalAudit(graph, await readAuditLedger(ledgerPath), {
+	const ledger = await readAuditLedger(ledgerPath);
+	const graph = await loadAuditVerificationGraph(args, ledger);
+	const verified = await verifyRemovalAudit(graph, ledger, {
 		failOnLeftovers: hasFlag(args, "fail-on-leftovers"),
 	});
 	await maybeWriteLedger(args, verified);
@@ -316,6 +318,14 @@ async function runAuditVerify(args: ParsedArgs): Promise<Result<void, HarnessErr
 		);
 	}
 	return ok(undefined);
+}
+
+async function loadAuditVerificationGraph(args: ParsedArgs, ledger: AuditLedger) {
+	if (hasFlag(args, "persisted")) return loadBaseGraph(args);
+	return buildCodeGraph({
+		root: optionalFlagString(args, "root") ?? ledger.snapshot.root,
+		maxFileBytes: numberFlag(args, "max-file-bytes", 750_000),
+	});
 }
 
 async function maybeWriteLedger(args: ParsedArgs, ledger: AuditLedger): Promise<void> {
@@ -1311,10 +1321,12 @@ function cartographerHelp(): string {
 		"  --ledger <path>            For audit verify, ledger JSON path",
 		"  --write <path>             Write audit ledger JSON to this path",
 		"  --fail-on-leftovers        For audit verify, fail when active leftovers remain",
+		"  --persisted                For audit verify, read <out>/graph.sqlite instead of rebuilding from the ledger root",
 		"  --author <name>            For notes ingest, agent or human author name",
 		"  --run-id <id>              For notes ingest, source run id",
 		"  --selector <selector>      all, path:<path>, package:<path-or-name>, kind:<node-kind>, node id, or text",
 		"  --path <path>              File path or node id for impact/context",
+		"  --symbol <symbol>          Brief around a symbol name or <path>:<name>",
 		"  --trace <path>             RuntimeEvent[] JSON trace for adoption analysis",
 		"  --depth <n>                Limit impact traversal depth. Default: unbounded",
 		"  --json                     Emit JSON for view, brief, audit, notes, slice, impact, context, adoption, and annotations",

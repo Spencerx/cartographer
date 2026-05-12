@@ -75,10 +75,19 @@ export function provenance(
 	return {
 		source,
 		evidence,
-		confidence: source === "agent-annotation" ? "agent-inferred" : "deterministic",
+		confidence: confidenceForSource(source),
 		freshness,
 		scannerVersion: SCANNER_VERSION,
 	};
+}
+
+function confidenceForSource(source: CodeGraphProvenance["source"]): CodeGraphProvenance["confidence"] {
+	if (source === "agent-annotation") return "agent-inferred";
+	if (source === "human-review") return "human-reviewed";
+	if (source === "typescript") return "compiler-backed";
+	if (source === "filesystem" || source === "git" || source === "package-manager") return "exact";
+	if (source === "fallow") return "heuristic";
+	return "parser-backed";
 }
 
 export function fileNodeId(path: string): string {

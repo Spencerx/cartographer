@@ -74,7 +74,6 @@ function addPackageScripts(
 			metadata: { command: scriptCommand },
 			provenance: provenance("package-manager", [{ path: file.path, hash: file.hash }]),
 		});
-		addEdge(graph, "DEFINES", packageInfo.id, scriptId, "script");
 	}
 }
 

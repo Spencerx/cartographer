@@ -605,15 +605,15 @@ function insertTypedNodeFact(
 			pathId(paths, node.path),
 		);
 	}
-	if (node.kind === "Symbol") {
+	for (const [index, symbol] of symbolRecordsForNode(node).entries()) {
 		statements.symbol.run(
+			`symbol:${node.path}:${symbol.name}:${symbol.lineStart}:${index}`,
 			node.id,
-			fileNodeIdForPath(node.path),
-			node.label,
-			stringMetadata(node, "symbolKind") ?? "unknown",
-			boolMetadata(node, "exported") ? 1 : 0,
-			firstEvidenceLine(node),
-			firstEvidenceEndLine(node),
+			symbol.name,
+			symbol.kind,
+			symbol.exported ? 1 : 0,
+			symbol.lineStart,
+			symbol.lineEnd,
 		);
 	}
 	if (isDbKind(node.kind)) {
@@ -825,6 +825,42 @@ function boolMetadata(node: CodeGraphNode | undefined, key: string): boolean | u
 	return typeof value === "boolean" ? value : undefined;
 }
 
+interface SymbolMetadataRecord {
+	readonly name: string;
+	readonly kind: string;
+	readonly exported: boolean;
+	readonly lineStart: number;
+	readonly lineEnd: number;
+}
+
+function symbolRecordsForNode(node: CodeGraphNode): readonly SymbolMetadataRecord[] {
+	if (node.path === undefined) return [];
+	const symbols = node.metadata["symbols"];
+	if (!Array.isArray(symbols)) return [];
+	return symbols.flatMap(symbolRecord);
+}
+
+function symbolRecord(value: unknown): readonly SymbolMetadataRecord[] {
+	if (!isRecord(value)) return [];
+	const name = value["name"];
+	const kind = value["kind"];
+	const exported = value["exported"];
+	const lineStart = value["lineStart"];
+	const lineEnd = value["lineEnd"];
+	if (
+		typeof name !== "string" ||
+		typeof kind !== "string" ||
+		typeof exported !== "boolean" ||
+		typeof lineStart !== "number" ||
+		typeof lineEnd !== "number"
+	) return [];
+	return [{ name, kind, exported, lineStart, lineEnd }];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function isFileMembershipNode(node: CodeGraphNode): boolean {
 	return (
 		node.kind === "File" ||
@@ -857,10 +893,6 @@ function firstEvidenceLine(node: CodeGraphNode): number | null {
 	return node.provenance.evidence.find((evidence) => evidence.startLine !== undefined)?.startLine ?? null;
 }
 
-function firstEvidenceEndLine(node: CodeGraphNode): number | null {
-	return node.provenance.evidence.find((evidence) => evidence.endLine !== undefined)?.endLine ?? null;
-}
-
 function firstEdgeLine(edge: CodeGraphEdge): number | null {
 	return edge.provenance.evidence.find((evidence) => evidence.startLine !== undefined)?.startLine ?? null;
 }
@@ -884,10 +916,6 @@ function packageScriptRunCommand(packageId: string, scriptName: string): string 
 	const command = `bun run ${shellPath(scriptName)}`;
 	const packageDir = packageId.startsWith("package:") ? packageId.slice("package:".length) : ".";
 	return packageDir === "." ? command : `cd ${shellPath(packageDir)} && ${command}`;
-}
-
-function fileNodeIdForPath(path: string | undefined): string {
-	return path === undefined ? "file:<unknown>" : `file:${path}`;
 }
 
 function isDbKind(kind: CodeGraphNode["kind"]): boolean {

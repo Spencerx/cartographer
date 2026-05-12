@@ -226,7 +226,6 @@ function targetNodeRank(kind: CodeGraphNode["kind"]): number {
 		kind === "CiRunStep"
 	) return 100;
 	if (kind === "DirtyArtifact") return 80;
-	if (kind === "Symbol") return 10;
 	return 50;
 }
 

@@ -637,6 +637,9 @@ async function graphContractSuite(
 			check("unique-node-ids", () => duplicateIdCheck("node", timedGraph.value.nodes.map((node) => node.id))),
 			check("unique-edge-ids", () => duplicateIdCheck("edge", timedGraph.value.edges.map((edge) => edge.id))),
 			check("edge-endpoints-exist", () => edgeEndpointCheck(timedGraph.value)),
+			check("symbols-are-typed-facts", () => symbolDietCheck(timedGraph.value)),
+			check("provenance-confidence-vocabulary", () => provenanceConfidenceCheck(timedGraph.value)),
+			check("manifest-default-provenance", () => manifestDefaultProvenanceCheck(timedGraph.value)),
 			check("sqlite-artifacts-valid", () =>
 				compatibility.ok
 					? passed("SQLite artifacts validate", {
@@ -1049,6 +1052,61 @@ function edgeEndpointCheck(graph: CodeGraphSnapshot): EvalCheck {
 	return dangling.length === 0
 		? passed("all edge endpoints exist", { edgeCount: graph.edges.length })
 		: failed("edge-endpoints-exist", "dangling edges found", { dangling: dangling.slice(0, 20) });
+}
+
+function symbolDietCheck(graph: CodeGraphSnapshot): EvalCheck {
+	const symbolNodes = graph.nodes.filter((node) => (node.kind as string) === "Symbol");
+	const defineEdges = graph.edges.filter((edge) => (edge.kind as string) === "DEFINES");
+	const filesWithSymbols = graph.nodes.filter((node) => Array.isArray(node.metadata["symbols"])).length;
+	return symbolNodes.length === 0 && defineEdges.length === 0
+		? passed("symbols are typed file facts instead of graph nodes", {
+				symbolNodes: symbolNodes.length,
+				defineEdges: defineEdges.length,
+				filesWithSymbols,
+			})
+		: failed("symbols-are-typed-facts", "symbol graph nodes or DEFINES edges remain", {
+				symbolNodes: symbolNodes.length,
+				defineEdges: defineEdges.length,
+			});
+}
+
+function provenanceConfidenceCheck(graph: CodeGraphSnapshot): EvalCheck {
+	const allowed = new Set(["exact", "compiler-backed", "parser-backed", "heuristic", "agent-inferred", "human-reviewed"]);
+	const facts = [
+		...graph.nodes.map((node) => ({ id: node.id, confidence: node.provenance.confidence })),
+		...graph.edges.map((edge) => ({ id: edge.id, confidence: edge.provenance.confidence })),
+	];
+	const invalid = facts.filter((fact) => !allowed.has(fact.confidence));
+	const legacyDeterministic = facts.filter((fact) => fact.confidence === ("deterministic" as string));
+	const confidenceCounts = facts.reduce<Record<string, number>>((counts, fact) => {
+		counts[fact.confidence] = (counts[fact.confidence] ?? 0) + 1;
+		return counts;
+	}, {});
+	return invalid.length === 0 && legacyDeterministic.length === 0
+		? passed("provenance uses precise v2 confidence vocabulary", {
+				factCount: facts.length,
+				confidenceCounts,
+			})
+		: failed("provenance-confidence-vocabulary", "legacy or invalid confidence values found", {
+				invalid: invalid.slice(0, 20),
+				legacyDeterministic: legacyDeterministic.slice(0, 20),
+				confidenceCounts,
+			});
+}
+
+function manifestDefaultProvenanceCheck(graph: CodeGraphSnapshot): EvalCheck {
+	const provenance = graph.manifest.defaultProvenance;
+	const ok =
+		provenance.source === "syntax" &&
+		provenance.confidence === "parser-backed" &&
+		provenance.freshness === "fresh" &&
+		typeof provenance.scannerVersion === "string" &&
+		provenance.scannerVersion.length > 0;
+	return ok
+		? passed("manifest records snapshot-level default provenance", { defaultProvenance: provenance })
+		: failed("manifest-default-provenance", "manifest default provenance is missing or imprecise", {
+				defaultProvenance: provenance,
+			});
 }
 
 function ignoredPathCheck(graph: CodeGraphSnapshot): EvalCheck {

@@ -20,6 +20,7 @@ export interface BuildBriefOptions {
 	readonly mode?: BriefMode | undefined;
 	readonly path?: string | undefined;
 	readonly packageId?: string | undefined;
+	readonly symbol?: string | undefined;
 	readonly env?: string | undefined;
 	readonly db?: string | undefined;
 	readonly iac?: string | undefined;
@@ -77,7 +78,7 @@ export interface BriefSnapshot {
 }
 
 export interface BriefAnchor {
-	readonly type: "path" | "package" | "env" | "db" | "iac" | "audit" | "changed";
+	readonly type: "path" | "package" | "symbol" | "env" | "db" | "iac" | "audit" | "changed";
 	readonly value: string;
 	readonly selector: string;
 	readonly resolved: readonly BriefResolvedAnchor[];
@@ -332,6 +333,7 @@ function primaryPathsForSource(source: BriefSource, summary: GraphContextSummary
 function briefSource(graph: CodeGraphSnapshot, options: BuildBriefOptions): BriefSource {
 	if (options.path !== undefined) return pathBriefSource(graph, options.path, options.depth ?? 1);
 	if (options.packageId !== undefined) return selectorBriefSource(graph, "package", options.packageId, `package:${options.packageId}`);
+	if (options.symbol !== undefined) return selectorBriefSource(graph, "symbol", options.symbol, `symbol:${options.symbol}`);
 	if (options.env !== undefined) return selectorBriefSource(graph, "env", options.env, `env:${options.env}`);
 	if (options.db !== undefined) return selectorBriefSource(graph, "db", options.db, dbSelector(options.db));
 	if (options.iac !== undefined) return selectorBriefSource(graph, "iac", options.iac, iacSelector(options.iac));
@@ -427,9 +429,41 @@ function nodeMatchesSelector(node: CodeGraphNode, selector: string, prefixValue:
 	if (node.id === selector || node.path === selector || `path:${node.path ?? ""}` === selector) return true;
 	if (selector.startsWith("path:")) return node.path === selector.slice("path:".length);
 	if (selector.startsWith("package:")) return node.id === selector || node.label === prefixValue;
+	if (selector.startsWith("symbol:")) return nodeMatchesSymbolSelector(node, selector.slice("symbol:".length));
 	if (selector.startsWith("env:")) return node.id === selector || node.label === prefixValue;
 	if (selector.startsWith("dirty:")) return node.kind === "DirtyArtifact";
 	return node.id === selector || node.label === prefixValue;
+}
+
+function nodeMatchesSymbolSelector(node: CodeGraphNode, value: string): boolean {
+	const path = symbolSelectorPath(value);
+	const name = symbolSelectorName(value);
+	if (path !== undefined && node.path !== path) return false;
+	return symbolMetadata(node).some((symbol) => symbol.name === name);
+}
+
+function symbolSelectorPath(value: string): string | undefined {
+	const separator = value.lastIndexOf(":");
+	if (separator <= 0) return undefined;
+	const candidate = value.slice(0, separator);
+	return candidate.includes("/") || candidate.includes(".") ? candidate : undefined;
+}
+
+function symbolSelectorName(value: string): string {
+	const separator = value.lastIndexOf(":");
+	if (separator <= 0) return value;
+	const candidate = value.slice(0, separator);
+	return candidate.includes("/") || candidate.includes(".") ? value.slice(separator + 1) : value;
+}
+
+function symbolMetadata(node: CodeGraphNode): readonly { readonly name: string }[] {
+	const symbols = node.metadata["symbols"];
+	if (!Array.isArray(symbols)) return [];
+	return symbols.flatMap((value) => {
+		if (!isRecord(value)) return [];
+		const name = value["name"];
+		return typeof name === "string" ? [{ name }] : [];
+	});
 }
 
 function selectorValue(selector: string): string | undefined {
@@ -497,7 +531,6 @@ function preferredNodesByPath(nodes: readonly CodeGraphNode[]): ReadonlyMap<stri
 function pathNodeRank(kind: CodeGraphNode["kind"]): number {
 	if (kind === "File" || kind === "Doc" || kind === "GeneratedArtifact" || isCiKind(kind)) return 100;
 	if (kind === "DirtyArtifact") return 80;
-	if (kind === "Symbol") return 10;
 	return 50;
 }
 
@@ -656,6 +689,10 @@ function surfaceRecords(slice: GraphSlice | undefined): BriefSurfaces {
 
 function isCiKind(kind: CodeGraphNode["kind"]): boolean {
 	return kind === "CiWorkflow" || kind === "CiJob" || kind === "CiRunStep";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function surfaceRecord(reason: string): (node: CodeGraphNode) => BriefSurfaceRecord {

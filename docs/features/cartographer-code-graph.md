@@ -61,7 +61,7 @@ Core deterministic facts include:
 
 - files, directories, docs, generated artifacts, and dirty artifacts
 - packages, workspaces, package scripts, and external dependencies
-- imports, type imports, exports, and symbols
+- imports, type imports, exported-symbol summaries, and typed symbol records
 - env var names only, never values
 - SQL migrations, tables, functions, policies, and triggers
 - Terraform resources/modules and dependency edges
@@ -69,7 +69,7 @@ Core deterministic facts include:
 - test relationships and package validation commands
 - evidence paths, line anchors, file hashes, freshness, and provenance classes
 
-SQLite is the durable query substrate. Prompt context is compiled from it; agents do not receive the full graph unless a debug export is explicitly requested.
+SQLite is the durable query substrate. Prompt context is compiled from it; agents do not receive the full graph unless a debug export is explicitly requested. Symbols are stored in the typed `symbols` table and compact file metadata instead of as standalone graph nodes.
 
 The SQLite store includes an `index_cache` table keyed by file path/hash and scanner version. Running `index` against an unchanged repo reuses the existing graph artifacts instead of rebuilding them; pass `--force` or `--no-incremental` when a full rebuild is required. It also includes `file_membership` records with derived package and surface labels so monorepo briefs can expose whether a path belongs to frontend, backend, shared, database, IaC, CI, docs, generated, tests, fixtures, or scripts.
 
@@ -77,7 +77,7 @@ The SQLite store includes an `index_cache` table keyed by file path/hash and sca
 
 `brief` is the normal agent-facing interface.
 
-It emits a bounded packet around a path, package, env var, DB object, IaC object, audit ledger, or changed files:
+It emits a bounded packet around a path, package, symbol, env var, DB object, IaC object, audit ledger, or changed files:
 
 ```bash
 bun run cartographer:brief -- --out .cartographer --path src/kernel/turn-executor.ts --mode implementation --budget 8000 --json

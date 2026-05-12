@@ -45,7 +45,7 @@ Core commands:
 - `index` - build `.cartographer/manifest.json`, `.cartographer/graph.sqlite`, JSON schemas, and `CODEBASE_MAP.md`; unchanged repos reuse prior artifacts through the SQLite file-hash cache unless `--force` or `--no-incremental` is passed.
 - `verify` - check graph artifact compatibility and, with `--fresh`, fail when persisted artifacts drift from the live repo.
 - `view` - summarize an existing graph.
-- `brief` - emit bounded agent-facing context around a path, package, env var, DB/IaC object, audit ledger, or changed files.
+- `brief` - emit bounded agent-facing context around a path, package, symbol, env var, DB/IaC object, audit ledger, or changed files.
 - `audit removal` / `audit verify` - create and verify task-specific removal ledgers.
 - `notes ingest` / `notes audit` / `notes accept` / `notes retire` - manage evidence-backed semantic notes.
 - `export graph` - explicitly export full debug JSON or JSONL graph data.

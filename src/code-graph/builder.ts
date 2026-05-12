@@ -255,19 +255,26 @@ function importEdgeKind(fact: ReturnType<typeof extractImports>[number]): CodeGr
 }
 
 function addSymbols(graph: MutableGraph, file: InventoryFile, text: string): void {
-	for (const fact of extractSymbols(file, text)) {
-		const symbolId = `symbol:${file.path}:${fact.name}`;
-		addNode(graph, {
-			id: symbolId,
-			kind: "Symbol",
-			label: fact.name,
-			path: file.path,
-			metadata: { symbolKind: fact.kind, exported: fact.exported },
-			provenance: provenance("syntax", [{ path: file.path, startLine: fact.line, endLine: fact.line }]),
-		});
-		addEdge(graph, "DEFINES", fileNodeId(file.path), symbolId, fact.kind);
-		if (fact.exported) addEdge(graph, "EXPORTS", fileNodeId(file.path), symbolId, fact.kind);
-	}
+	const facts = extractSymbols(file, text);
+	if (facts.length === 0) return;
+	const node = graph.nodes.get(fileNodeId(file.path));
+	if (node === undefined) return;
+	const symbols = facts.map((fact) => ({
+		name: fact.name,
+		kind: fact.kind,
+		exported: fact.exported,
+		lineStart: fact.line,
+		lineEnd: fact.line,
+	}));
+	graph.nodes.set(node.id, {
+		...node,
+		metadata: {
+			...node.metadata,
+			symbolCount: symbols.length,
+			exports: symbols.filter((symbol) => symbol.exported).map((symbol) => symbol.name),
+			symbols,
+		},
+	});
 }
 
 function addEnvVars(graph: MutableGraph, file: InventoryFile, text: string): void {
@@ -799,5 +806,12 @@ function manifestFor(
 			findings: graph.findings.length,
 		},
 		ignorePatterns: defaultIgnorePatterns(),
+		defaultProvenance: {
+			source: "syntax",
+			confidence: "parser-backed",
+			freshness: "fresh",
+			...(git.commit !== undefined ? { snapshotCommit: git.commit } : {}),
+			scannerVersion: SCANNER_VERSION,
+		},
 	};
 }

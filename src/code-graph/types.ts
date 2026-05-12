@@ -67,6 +67,7 @@ export type CodeGraphSource =
 	| "fallow"
 	| "iac-parser"
 	| "sql-parser"
+	| "ci-parser"
 	| "doc-parser"
 	| "agent-annotation"
 	| "human-review";

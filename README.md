@@ -5,7 +5,7 @@
 
 A standalone Cartographer CLI plus Claude Code plugin for mapping and navigating codebases.
 
-Cartographer v2 adds a graph-first CLI for agents: index a repo, query task slices, inspect impact, generate preflight context, audit semantic annotations, and score whether agents used graph context before editing.
+Cartographer v2 adds a graph-first CLI for agents: index a repo, query task slices, inspect impact, include package, SQL, Terraform, and GitHub Actions evidence, generate preflight context, audit semantic annotations, and score whether agents used graph context before editing.
 
 ## CLI
 
@@ -19,8 +19,11 @@ Run the CLI:
 
 ```bash
 bun run cartographer -- --help
+bun run cartographer:mcp
 bun run cartographer:index -- --root . --out docs/codegraph
+bun run cartographer:verify -- --out docs/codegraph --root . --fresh
 bun run cartographer:view -- --out docs/codegraph
+bun run cartographer:diff -- --base /tmp/old-codegraph --head docs/codegraph
 bun run cartographer:preflight -- --root . --path src/index.ts --out docs/codegraph
 ```
 
@@ -36,14 +39,19 @@ The smoke, recorded Codex-trace, and explicit live Codex profiles index this rep
 
 Core commands:
 
+- `mcp` - run a thin newline-delimited MCP stdio wrapper over Cartographer graph operations.
 - `index` - build `schema.json`, `manifest.json`, `graph.json`, and `CODEBASE_MAP.md`.
+- `verify` - check graph artifact compatibility and, with `--fresh`, fail when persisted artifacts drift from the live repo.
 - `view` - summarize an existing graph.
+- `diff` - compare two graph artifact directories.
 - `slice` - show a bounded graph slice for a selector.
 - `impact` - show downstream impact for a path or node id.
 - `context` - combine slice and impact context for planning.
 - `preflight` - emit compact graph context before an agent edit.
 - `adoption` - score graph-first behavior from runtime traces.
 - `annotate` / `annotations` - generate and audit semantic overlay notes.
+
+The MCP wrapper exposes `cartographer_index`, `cartographer_view`, `cartographer_context`, `cartographer_preflight`, `cartographer_verify`, and `cartographer_diff` as tools. It wraps the same library functions as the CLI; it does not become a long-lived graph brain or agent manager.
 
 ## Installation
 

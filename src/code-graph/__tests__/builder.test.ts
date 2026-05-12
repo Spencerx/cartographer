@@ -262,6 +262,89 @@ describe("buildCodeGraph", () => {
 		expect(bucketImpact.nodes.some((node) => node.id === "iacmodule:module:cdn")).toBe(true);
 	});
 
+	test("indexes GitHub Actions validation and deployment tasks", async () => {
+		await mkdir(join(tempDir, ".github/workflows"), { recursive: true });
+		await writeFile(join(tempDir, "package.json"), JSON.stringify({ name: "fixture" }));
+		await writeFile(
+			join(tempDir, ".github/workflows/ci.yml"),
+			[
+				"name: CI",
+				"on: [push]",
+				"jobs:",
+				"  verify:",
+				"    name: Verify",
+				"    runs-on: ubuntu-latest",
+				"    steps:",
+				"      - uses: actions/checkout@v4",
+				"      - name: Typecheck",
+				"        run: bun run typecheck",
+				"      - name: Test and lint",
+				"        run: |",
+				"          bun test",
+				"          bun run lint",
+				"  deploy:",
+				"    runs-on: ubuntu-latest",
+				"    steps:",
+				"      - name: Deploy app",
+				"        run: fly deploy",
+			].join("\n"),
+		);
+
+		const graph = await buildCodeGraph({ root: tempDir });
+		const workflowSlice = sliceGraph(graph, "config:ci:.github/workflows/ci.yml");
+		const typecheckNode = graph.nodes.find(
+			(node) => node.id === "config:ci:.github/workflows/ci.yml:job:verify:run:1",
+		);
+		const multilineNode = graph.nodes.find(
+			(node) => node.id === "config:ci:.github/workflows/ci.yml:job:verify:run:2",
+		);
+		const deployNode = graph.nodes.find(
+			(node) => node.id === "config:ci:.github/workflows/ci.yml:job:deploy:run:1",
+		);
+
+		expect(graph.nodes.some((node) => node.id === "config:ci:.github/workflows/ci.yml")).toBe(true);
+		expect(graph.nodes.some((node) => node.id === "config:ci:.github/workflows/ci.yml:job:verify")).toBe(true);
+		expect(typecheckNode).toMatchObject({
+			kind: "Config",
+			label: "Typecheck",
+			metadata: {
+				workflowFactKind: "run",
+				taskKind: "validation",
+				command: "bun run typecheck",
+			},
+		});
+		expect(multilineNode?.metadata["command"]).toBe("bun test\nbun run lint");
+		expect(deployNode?.metadata["taskKind"]).toBe("deployment");
+		expect(
+			graph.edges.some(
+				(edge) =>
+					edge.kind === "CONFIGURES" &&
+					edge.from === "file:.github/workflows/ci.yml" &&
+					edge.to === "config:ci:.github/workflows/ci.yml",
+			),
+		).toBe(true);
+		expect(
+			graph.edges.some(
+				(edge) =>
+					edge.kind === "CONFIGURES" &&
+					edge.from === "config:ci:.github/workflows/ci.yml" &&
+					edge.to === "config:ci:.github/workflows/ci.yml:job:verify",
+			),
+		).toBe(true);
+		expect(
+			graph.edges.some(
+				(edge) =>
+					edge.kind === "TASK_DEPENDS_ON" &&
+					edge.from === "config:ci:.github/workflows/ci.yml:job:verify" &&
+					edge.to === "config:ci:.github/workflows/ci.yml:job:verify:run:1",
+			),
+		).toBe(true);
+		expect(workflowSlice.nodes.some((node) => node.id === "config:ci:.github/workflows/ci.yml:job:deploy:run:1")).toBe(
+			true,
+		);
+		expect(graph.findings).toEqual([]);
+	});
+
 	test("creates bounded slices and impact views", async () => {
 		await writeFile(
 			join(tempDir, "package.json"),

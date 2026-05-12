@@ -16,7 +16,7 @@ import {
 	type TraceExpectationCheck,
 	type TraceExpectationInput,
 } from "./adoption.ts";
-import { writeCodeGraphArtifacts, readCodeGraph } from "./artifacts.ts";
+import { checkCodeGraphArtifacts, writeCodeGraphArtifacts, readCodeGraph, type CodeGraphArtifactCompatibility } from "./artifacts.ts";
 import { buildCodeGraph } from "./builder.ts";
 import {
 	buildGraphContext,
@@ -25,6 +25,9 @@ import {
 	renderGraphContextList,
 	renderGraphContextSummary,
 } from "./context.ts";
+import { diffCodeGraphs, renderCodeGraphDiff } from "./diff.ts";
+import type { CodeGraphDiff } from "./diff.ts";
+import { runCartographerMcpServer } from "./mcp.ts";
 import { annotateSliceWithOpenRouter, DEFAULT_OPENROUTER_MODEL } from "./openrouter.ts";
 import {
 	auditAnnotationOverlay,
@@ -47,9 +50,12 @@ interface AdoptionTraceAnalysis {
 
 const cartographerHandlers: Record<string, CartographerHandler> = {
 	help: runHelp,
+	mcp: runMcp,
 	index: runIndex,
 	update: runIndex,
+	verify: runVerify,
 	view: runView,
+	diff: runDiff,
 	slice: runSlice,
 	impact: runImpact,
 	context: runContext,
@@ -70,6 +76,15 @@ export async function runCartographer(args: ParsedArgs): Promise<Result<void, Ha
 async function runHelp(): Promise<Result<void, HarnessError>> {
 	await writeOut(cartographerHelp());
 	return ok(undefined);
+}
+
+async function runMcp(): Promise<Result<void, HarnessError>> {
+	try {
+		await runCartographerMcpServer();
+		return ok(undefined);
+	} catch (cause) {
+		return err(HarnessError.from("INTERNAL", cause));
+	}
 }
 
 async function runIndex(args: ParsedArgs): Promise<Result<void, HarnessError>> {
@@ -96,6 +111,78 @@ async function runView(args: ParsedArgs): Promise<Result<void, HarnessError>> {
 		await writeOut(summarizeGraph(graph));
 		return ok(undefined);
 	} catch (cause) {
+		return err(HarnessError.from("INTERNAL", cause));
+	}
+}
+
+async function runVerify(args: ParsedArgs): Promise<Result<void, HarnessError>> {
+	try {
+		const outDir = flagString(args, "out", "docs/codegraph");
+		const compatibility = await checkCodeGraphArtifacts(outDir);
+		const freshness = hasFlag(args, "fresh") ? await graphFreshnessCheck(args, outDir) : undefined;
+		const output = verifyOutput(compatibility, freshness);
+		await writeOut(
+			hasFlag(args, "json")
+				? `${JSON.stringify(output, null, 2)}\n`
+				: renderArtifactCompatibility(output),
+		);
+		if (!output.ok) {
+			return err(new HarnessError("VALIDATION_FAILED", `code graph artifacts are incompatible: ${outDir}`));
+		}
+		return ok(undefined);
+	} catch (cause) {
+		return err(HarnessError.from("INTERNAL", cause));
+	}
+}
+
+interface CodeGraphVerifyOutput extends CodeGraphArtifactCompatibility {
+	readonly freshness?: CodeGraphFreshnessCheck | undefined;
+}
+
+interface CodeGraphFreshnessCheck {
+	readonly ok: boolean;
+	readonly root: string;
+	readonly diffSummary: CodeGraphDiff["summary"];
+	readonly persisted: CodeGraphDiff["base"];
+	readonly live: CodeGraphDiff["head"];
+}
+
+async function graphFreshnessCheck(args: ParsedArgs, outDir: string): Promise<CodeGraphFreshnessCheck> {
+	const root = flagString(args, "root", ".");
+	const persisted = await readCodeGraph(outDir);
+	const live = await buildCodeGraph({ root, maxFileBytes: numberFlag(args, "max-file-bytes", 750_000) });
+	const diff = diffCodeGraphs(persisted, live);
+	return {
+		ok: diffIsEmpty(diff),
+		root,
+		diffSummary: diff.summary,
+		persisted: diff.base,
+		live: diff.head,
+	};
+}
+
+function diffIsEmpty(diff: CodeGraphDiff): boolean {
+	return Object.values(diff.summary).every(
+		(summary) => summary.added === 0 && summary.removed === 0 && summary.changed === 0,
+	);
+}
+
+function verifyOutput(
+	compatibility: CodeGraphArtifactCompatibility,
+	freshness: CodeGraphFreshnessCheck | undefined,
+): CodeGraphVerifyOutput {
+	return { ...compatibility, ok: compatibility.ok && (freshness?.ok ?? true), freshness };
+}
+
+async function runDiff(args: ParsedArgs): Promise<Result<void, HarnessError>> {
+	try {
+		const base = requiredFlag(args, "base", "usage: cartographer diff --base docs/codegraph.before --head docs/codegraph.after");
+		const head = requiredFlag(args, "head", "usage: cartographer diff --base docs/codegraph.before --head docs/codegraph.after");
+		const diff = diffCodeGraphs(await readCodeGraph(base), await readCodeGraph(head));
+		await writeOut(hasFlag(args, "json") ? `${JSON.stringify(diff, null, 2)}\n` : renderCodeGraphDiff(diff));
+		return ok(undefined);
+	} catch (cause) {
+		if (cause instanceof HarnessError) return err(cause);
 		return err(HarnessError.from("INTERNAL", cause));
 	}
 }
@@ -349,6 +436,62 @@ function renderCompactContext(context: GraphContextCompact): string {
 		"",
 		...renderGraphContextSummary(context.summary),
 	].join("\n");
+}
+
+function renderArtifactCompatibility(compatibility: CodeGraphVerifyOutput): string {
+	return [
+		"# Code Graph Artifact Compatibility",
+		"",
+		`Artifacts: \`${compatibility.outDir}\``,
+		`Compatible: ${yesNo(compatibility.ok)}`,
+		`Schema version: ${compatibility.schemaVersion ?? "unknown"}`,
+		`Generated: ${compatibility.generatedAt ?? "unknown"}`,
+		"",
+		"Totals:",
+		...renderCompatibilityTotals(compatibility),
+		"",
+		"Issues:",
+		...renderCompatibilityIssues(compatibility),
+		"",
+		...renderFreshnessCheck(compatibility.freshness),
+		"",
+	].join("\n");
+}
+
+function renderCompatibilityTotals(compatibility: CodeGraphArtifactCompatibility): readonly string[] {
+	if (compatibility.totals === undefined) return ["- Unknown"];
+	return [
+		`- Files: ${compatibility.totals.files}`,
+		`- Packages: ${compatibility.totals.packages}`,
+		`- Nodes: ${compatibility.totals.nodes}`,
+		`- Edges: ${compatibility.totals.edges}`,
+		`- Findings: ${compatibility.totals.findings}`,
+	];
+}
+
+function renderCompatibilityIssues(compatibility: CodeGraphArtifactCompatibility): readonly string[] {
+	if (compatibility.issues.length === 0) return ["- None"];
+	return compatibility.issues.map((issue) =>
+		[
+			`- ${issue.severity.toUpperCase()} ${issue.code}: ${issue.message}`,
+			issue.path === undefined ? "" : `(${issue.path})`,
+		]
+			.filter((part) => part.length > 0)
+			.join(" "),
+	);
+}
+
+function renderFreshnessCheck(freshness: CodeGraphFreshnessCheck | undefined): readonly string[] {
+	if (freshness === undefined) return [];
+	return [
+		"Freshness:",
+		`- Root: \`${freshness.root}\``,
+		`- Fresh: ${yesNo(freshness.ok)}`,
+		`- Node changes: +${freshness.diffSummary.nodes.added} -${freshness.diffSummary.nodes.removed} ~${freshness.diffSummary.nodes.changed}`,
+		`- Edge changes: +${freshness.diffSummary.edges.added} -${freshness.diffSummary.edges.removed} ~${freshness.diffSummary.edges.changed}`,
+		`- Finding changes: +${freshness.diffSummary.findings.added} -${freshness.diffSummary.findings.removed} ~${freshness.diffSummary.findings.changed}`,
+		`- Annotation changes: +${freshness.diffSummary.annotations.added} -${freshness.diffSummary.annotations.removed} ~${freshness.diffSummary.annotations.changed}`,
+	];
 }
 
 function renderAdoptionSummary(
@@ -772,9 +915,12 @@ function cartographerHelp(): string {
 		"cartographer <subcommand> [options]",
 		"",
 		"Subcommands:",
+		"  mcp        Run the thin MCP stdio wrapper over Cartographer CLI operations",
 		"  index      Build docs/codegraph/{schema,manifest,graph}.json and CODEBASE_MAP.md",
 		"  update     Rebuild the graph artifacts in place",
+		"  verify     Check graph artifact compatibility and structural integrity",
 		"  view       Show graph summary from --out",
+		"  diff       Diff two graph artifact directories with --base and --head",
 		"  slice      Show a task slice, e.g. --selector path:src/index.ts",
 		"  impact     Show incoming impact for --path src/index.ts",
 		"  context    Show slice plus impact context for --path src/index.ts",
@@ -786,12 +932,15 @@ function cartographerHelp(): string {
 		"Options:",
 		"  --root <path>              Repo root for live/index mode. Default: .",
 		"  --out <path>               Graph artifact directory. Default: docs/codegraph",
+		"  --base <path>              Base graph artifact directory for diff",
+		"  --head <path>              Head graph artifact directory for diff",
 		"  --map <path>               Map output path. Default: <out>/CODEBASE_MAP.md",
 		"  --selector <selector>      all, path:<path>, package:<path-or-name>, kind:<node-kind>, node id, or text",
 		"  --path <path>              File path or node id for impact/context",
 		"  --trace <path>             RuntimeEvent[] JSON trace for adoption analysis",
 		"  --depth <n>                Limit impact traversal depth. Default: unbounded",
 		"  --json                     Emit JSON for view, slice, impact, context, adoption, and annotations",
+		"  --fresh                    For verify, compare artifacts against a live graph from --root",
 		"  --require-graph-first      For adoption, fail if graph was unused, preflight failed, or repo source was read before graph context",
 		"  --expect-text <text>       For adoption, fail if final trace text omits this text. Repeatable",
 		"  --expect-path <path>       For adoption, fail if final trace text omits this path. Repeatable",

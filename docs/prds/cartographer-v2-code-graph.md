@@ -1,8 +1,10 @@
 # Cartographer v2: Graph CLI And Agent Overlay
 
-Status: master PRD
+Status: superseded by `docs/prds/cartographer-v2-master-prd.md`
 Owner: Cartographer
 Date: 2026-05-11
+
+This document is retained as historical context for the original graph CLI and agent overlay direction. The current product source of truth is `docs/prds/cartographer-v2-master-prd.md`, which narrows v2 around `index`, `brief`, `audit`, and `notes`.
 
 ## Goal
 

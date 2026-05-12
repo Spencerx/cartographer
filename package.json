@@ -21,9 +21,12 @@
 	},
 	"scripts": {
 		"cartographer": "bun run src/cli/index.ts",
+		"cartographer:mcp": "bun run src/cli/index.ts mcp",
 		"cartographer:index": "bun run src/cli/index.ts index",
 		"cartographer:update": "bun run src/cli/index.ts update",
+		"cartographer:verify": "bun run src/cli/index.ts verify",
 		"cartographer:view": "bun run src/cli/index.ts view",
+		"cartographer:diff": "bun run src/cli/index.ts diff",
 		"cartographer:slice": "bun run src/cli/index.ts slice",
 		"cartographer:impact": "bun run src/cli/index.ts impact",
 		"cartographer:context": "bun run src/cli/index.ts context",

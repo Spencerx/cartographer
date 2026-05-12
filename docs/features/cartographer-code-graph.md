@@ -4,7 +4,7 @@ The Cartographer code graph CLI gives agents a deterministic repo map plus a pro
 
 The important split is:
 
-- deterministic graph facts: files, imports, symbols, packages, scripts, SQL/IaC resources, Terraform resource/module dependencies, env vars, and git freshness
+- deterministic graph facts: files, imports, symbols, packages, scripts, SQL/IaC resources, Terraform resource/module dependencies, GitHub Actions workflow tasks, env vars, and git freshness
 - agent overlay notes: purpose, edit warnings, generated ownership, workflow guidance, validation advice, and risk notes
 
 Tree-sitter-style parsing belongs in the first bucket. Codex/OpenRouter annotations belong in the second bucket and must stay evidence-linked, reviewable, and stale-markable. The graph must be useful without annotations; overlay notes add workflow meaning, edit warnings, ownership guidance, and validation recipes after the structural graph has already found the relevant code and IaC surfaces.
@@ -12,9 +12,12 @@ Tree-sitter-style parsing belongs in the first bucket. Codex/OpenRouter annotati
 ## Commands
 
 ```bash
+bun run cartographer:mcp
 bun run cartographer:index -- --root . --out docs/codegraph
 bun run cartographer:update -- --root . --out docs/codegraph
+bun run cartographer:verify -- --out docs/codegraph --root . --fresh
 bun run cartographer:view -- --out docs/codegraph
+bun run cartographer:diff -- --base /tmp/codegraph-before --head docs/codegraph
 bun run cartographer:slice -- --out docs/codegraph --selector path:src/index.ts
 bun run cartographer:slice -- --out docs/codegraph --selector path:src/index.ts --json
 bun run cartographer:impact -- --out docs/codegraph --path src/index.ts
@@ -36,6 +39,14 @@ The direct binary form is:
 ```bash
 bun run src/cli/index.ts cartographer index --root . --out docs/codegraph
 ```
+
+`verify` is the deterministic artifact compatibility gate. It checks that required artifacts exist, `graph.json` validates against the current schema, `manifest.json` matches the graph manifest, manifest totals match the graph payload, node and edge IDs are unique, and every edge endpoint points at an existing node. Add `--fresh --root <repo>` in CI or scheduled jobs to rebuild the graph in memory and fail when persisted artifacts drift from the live repository.
+
+`diff` compares two graph artifact directories and reports added, removed, and changed nodes, edges, findings, and annotations. Use it for branch-update reviews, scheduled graph freshness jobs, and CI receipts that need to prove what changed between snapshots.
+
+`mcp` runs a thin newline-delimited stdio JSON-RPC wrapper for MCP clients. The wrapper exposes `cartographer_index`, `cartographer_view`, `cartographer_context`, `cartographer_preflight`, `cartographer_verify`, and `cartographer_diff` tools. It calls the same graph library as the CLI and does not move planning, agent management, or graph truth into an MCP server.
+
+Codex and Claude-style runtimes can use the exported `buildCartographerPreflightAdapterPayload` helper when they want preflight to run before an agent turn without asking the model to call the CLI manually. The helper returns the prompt text plus adoption-compatible `tool_use` and `tool_result` runtime events for `cartographer adoption`.
 
 ## Outputs
 
@@ -69,9 +80,9 @@ Use `--json` for harnesses, eval runners, and other automated consumers. The mar
 
 Agent runtimes can opt into the same preflight without asking the model to run the command manually. A runtime wrapper should build compact Cartographer context against the active workspace before adapter execution, inject it into the prompt as a `cartographer-preflight` system reminder, and emit `tool_use`/`tool_result` runtime events shaped so `cartographer adoption --trace` can measure graph use. This is a harness workflow hook, not an eval report.
 
-Slices and impact views include owning and ancestor packages plus focused validation scripts such as `build`, `lint`, `typecheck`, and `test:*`. Database slices also include safe schema/type/status scripts such as `db:types` and `db:status`; runtime-only or destructive scripts such as `dev`, `start`, `preview`, `postinstall`, `db:reset`, and `db:seed` are intentionally omitted. Terraform `RESOURCE_DEPENDS_ON` edges connect resource and module nodes to referenced resources/modules, so `impact --path iacresource:<type>:<name>` can show downstream infrastructure that depends on that resource.
+Slices and impact views include owning and ancestor packages plus focused validation scripts such as `build`, `lint`, `typecheck`, and `test:*`. Database slices also include safe schema/type/status scripts such as `db:types` and `db:status`; runtime-only or destructive scripts such as `dev`, `start`, `preview`, `postinstall`, `db:reset`, and `db:seed` are intentionally omitted. Terraform `RESOURCE_DEPENDS_ON` edges connect resource and module nodes to referenced resources/modules, so `impact --path iacresource:<type>:<name>` can show downstream infrastructure that depends on that resource. GitHub Actions workflow files under `.github/workflows/*.yml` and `.github/workflows/*.yaml` become `Config` nodes for workflows, jobs, and `run` steps, with `CONFIGURES` and `TASK_DEPENDS_ON` edges. Run steps are classified as `validation`, `deployment`, or `other` metadata so agents can inspect CI/deploy evidence without Cartographer claiming a full CI task graph.
 
-Node-id selectors such as `env:DATABASE_URL`, `dbtable:public.accounts`, `script:.:test`, `symbol:src/index.ts:main`, and `iacresource:aws_s3_bucket:assets` are exact selectors. `path:src/index.ts` is accepted in `context --path` and drives both the selected slice and impact view. Use plain text only when broad search is intentional.
+Node-id selectors such as `env:DATABASE_URL`, `dbtable:public.accounts`, `script:.:test`, `symbol:src/index.ts:main`, and `iacresource:aws_s3_bucket:assets` are exact selectors. `config:ci:.github/workflows/ci.yml` selects the workflow config and its job/run descendants. `path:src/index.ts` is accepted in `context --path` and drives both the selected slice and impact view. Use plain text only when broad search is intentional.
 
 Candidate overlay notes are not source-of-truth graph facts. A later review step should accept, reject, retire, or mark them stale based on cited evidence. Accepted and stale overlay notes are merged into slice/context/preflight output as `annotations` plus compact `summary.annotationNotes`; candidates remain visible only through `cartographer annotations` until reviewed. If an accepted note has missing evidence or a changed evidence hash, the normal graph context downgrades it to `stale` and emits an overlay finding so agents see the risk without running a separate audit first.
 

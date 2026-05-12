@@ -1,7 +1,10 @@
 export { buildCodeGraph } from "./builder.ts";
 export { runCartographer } from "./commands.ts";
 export { buildGraphContext, compactGraphContext, contextSelectorFor } from "./context.ts";
-export { readCodeGraph, renderMap, writeCodeGraphArtifacts } from "./artifacts.ts";
+export { checkCodeGraphArtifacts, readCodeGraph, renderMap, writeCodeGraphArtifacts } from "./artifacts.ts";
+export { diffCodeGraphs, renderCodeGraphDiff } from "./diff.ts";
+export { handleCartographerMcpRequest, runCartographerMcpServer } from "./mcp.ts";
+export { buildCartographerPreflightAdapterPayload, cartographerPreflightAdapterPayload } from "./preflight-adapter.ts";
 export { impactGraph, renderSlice, sliceGraph, summarizeGraph } from "./query.ts";
 export { runCartographerPreflight } from "./preflight.ts";
 export {
@@ -37,6 +40,29 @@ export {
 	readAnnotationOverlay,
 	renderAnnotationOverlayAudit,
 } from "./overlays.ts";
+export type {
+	CodeGraphArtifactCompatibility,
+	CodeGraphArtifactCompatibilityIssue,
+} from "./artifacts.ts";
+export type {
+	CodeGraphChangedEntry,
+	CodeGraphDiff,
+	CodeGraphDiffEntry,
+	CodeGraphDiffGraphRef,
+	CodeGraphDiffSection,
+	CodeGraphDiffSummary,
+} from "./diff.ts";
+export type {
+	McpJsonRpcErrorResponse,
+	McpJsonRpcRequest,
+	McpJsonRpcResponse,
+	McpJsonRpcSuccessResponse,
+} from "./mcp.ts";
+export type {
+	CartographerPreflightAdapterInput,
+	CartographerPreflightAdapterKind,
+	CartographerPreflightAdapterPayload,
+} from "./preflight-adapter.ts";
 export type {
 	AnnotationOverlayAudit,
 	AnnotationOverlayAuditSummary,

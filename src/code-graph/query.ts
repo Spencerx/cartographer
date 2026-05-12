@@ -847,9 +847,15 @@ function kindSelector(kind: string): (node: CodeGraphNode) => boolean {
 	return (node) => node.kind === kind;
 }
 
+function configSelector(id: string): (node: CodeGraphNode) => boolean {
+	const fullId = `config:${id}`;
+	return (node) => node.id === fullId || node.id.startsWith(`${fullId}:`);
+}
+
 const selectorPrefixes = [
 	{ prefix: "path:", create: pathSelector },
 	{ prefix: "kind:", create: kindSelector },
+	{ prefix: "config:", create: configSelector },
 ];
 
 function isNodeIdSelector(selector: string): boolean {
@@ -865,6 +871,7 @@ const nodeIdSelectorPrefixes = [
 	"dbpolicy:",
 	"dbtable:",
 	"dbtrigger:",
+	"config:",
 	"dir:",
 	"dirty:",
 	"env:",

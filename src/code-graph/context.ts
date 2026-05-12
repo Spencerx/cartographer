@@ -248,6 +248,7 @@ const contextSelectorPrefixes = [
 	"dbfunction:",
 	"dbpolicy:",
 	"dbtrigger:",
+	"config:",
 	"dir:",
 	"dirty:",
 	"env:",

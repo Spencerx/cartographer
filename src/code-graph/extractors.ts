@@ -60,6 +60,17 @@ export interface DataAccessFact {
 	readonly line: number;
 }
 
+export interface WorkflowFact {
+	readonly kind: "workflow" | "job" | "run";
+	readonly workflowName: string;
+	readonly name: string;
+	readonly taskKind: "validation" | "deployment" | "other";
+	readonly line: number;
+	readonly jobId?: string | undefined;
+	readonly stepIndex?: number | undefined;
+	readonly command?: string | undefined;
+}
+
 const symbolPatterns: Array<{ readonly kind: SymbolFact["kind"]; readonly regex: RegExp }> = [
 	{ kind: "function", regex: /\b(export\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/g },
 	{ kind: "class", regex: /\b(export\s+)?class\s+([A-Za-z_$][\w$]*)/g },
@@ -158,6 +169,44 @@ export function extractDataAccessFacts(file: InventoryFile, text: string): reado
 		[...text.matchAll(pattern.regex)].flatMap((match) => dataAccessFact(text, pattern.kind, match)),
 	);
 	return uniqueBy(facts, (fact) => `${fact.kind}:${fact.name}:${fact.line}`);
+}
+
+export function extractWorkflowFacts(file: InventoryFile, text: string): readonly WorkflowFact[] {
+	if (!isGithubWorkflowPath(file.path)) return [];
+	const lines = text.split(/\r?\n/);
+	const workflowName = workflowNameFor(file.path, lines);
+	const facts: WorkflowFact[] = [
+		{
+			kind: "workflow",
+			workflowName,
+			name: workflowName,
+			taskKind: workflowTaskKind(workflowName),
+			line: workflowNameLine(lines) ?? 1,
+		},
+	];
+	for (const job of workflowJobs(lines)) {
+		facts.push({
+			kind: "job",
+			workflowName,
+			jobId: job.id,
+			name: job.name ?? job.id,
+			taskKind: workflowTaskKind([job.id, job.name, ...job.commands].filter(isString).join(" ")),
+			line: job.line,
+		});
+		for (const [index, step] of job.steps.entries()) {
+			facts.push({
+				kind: "run",
+				workflowName,
+				jobId: job.id,
+				stepIndex: index + 1,
+				name: step.name ?? `${job.id} run ${index + 1}`,
+				taskKind: workflowTaskKind([step.name, step.command, job.id].filter(isString).join(" ")),
+				command: step.command,
+				line: step.line,
+			});
+		}
+	}
+	return facts;
 }
 
 function extractEcmaImports(path: string, text: string, allPaths: ReadonlySet<string>): readonly ImportFact[] {
@@ -331,6 +380,161 @@ const builtInFromReceivers = new Set([
 	"BigInt64Array",
 	"BigUint64Array",
 ]);
+
+function isGithubWorkflowPath(path: string): boolean {
+	return /^\.github\/workflows\/[^/]+\.ya?ml$/i.test(path);
+}
+
+function workflowNameFor(path: string, lines: readonly string[]): string {
+	const explicit = workflowNameFromLines(lines);
+	return explicit ?? path.split("/").at(-1)?.replace(/\.ya?ml$/i, "") ?? path;
+}
+
+function workflowNameFromLines(lines: readonly string[]): string | undefined {
+	for (const line of lines) {
+		const match = line.match(/^name:\s*(.+?)\s*$/);
+		if (match?.[1] !== undefined) return cleanYamlScalar(match[1]);
+	}
+	return undefined;
+}
+
+function workflowNameLine(lines: readonly string[]): number | undefined {
+	const index = lines.findIndex((line) => /^name:\s*.+?\s*$/.test(line));
+	return index >= 0 ? index + 1 : undefined;
+}
+
+interface WorkflowJob {
+	readonly id: string;
+	readonly line: number;
+	readonly name?: string | undefined;
+	readonly steps: readonly WorkflowRunStep[];
+	readonly commands: readonly string[];
+}
+
+interface WorkflowRunStep {
+	readonly name?: string | undefined;
+	readonly command: string;
+	readonly line: number;
+}
+
+function workflowJobs(lines: readonly string[]): readonly WorkflowJob[] {
+	const jobsStartIndex = lines.findIndex((line) => /^jobs:\s*$/.test(line));
+	if (jobsStartIndex < 0) return [];
+	const jobs: WorkflowJob[] = [];
+	let current: MutableWorkflowJob | undefined;
+	for (let index = jobsStartIndex + 1; index < lines.length; index += 1) {
+		const line = lines[index] ?? "";
+		if (isTopLevelYamlKey(line)) break;
+		const jobMatch = line.match(/^  ([A-Za-z0-9_-]+):\s*(?:#.*)?$/);
+		if (jobMatch?.[1] !== undefined) {
+			if (current !== undefined) jobs.push(workflowJobFromMutable(current));
+			current = { id: jobMatch[1], line: index + 1, steps: [], commands: [] };
+			continue;
+		}
+		if (current === undefined) continue;
+		const jobName = line.match(/^    name:\s*(.+?)\s*$/)?.[1];
+		if (jobName !== undefined) current.name = cleanYamlScalar(jobName);
+		const stepName = nearbyWorkflowStepName(lines, index);
+		const run = workflowRunCommand(lines, index);
+		if (run !== undefined) {
+			current.steps.push({ name: stepName, command: run.command, line: index + 1 });
+			current.commands.push(run.command);
+		}
+	}
+	if (current !== undefined) jobs.push(workflowJobFromMutable(current));
+	return jobs;
+}
+
+interface MutableWorkflowJob {
+	readonly id: string;
+	readonly line: number;
+	name?: string | undefined;
+	readonly steps: WorkflowRunStep[];
+	readonly commands: string[];
+}
+
+function workflowJobFromMutable(job: MutableWorkflowJob): WorkflowJob {
+	return {
+		id: job.id,
+		line: job.line,
+		...(job.name === undefined ? {} : { name: job.name }),
+		steps: job.steps,
+		commands: job.commands,
+	};
+}
+
+function isTopLevelYamlKey(line: string): boolean {
+	return /^[A-Za-z_][\w-]*:\s*/.test(line) && !/^jobs:\s*$/.test(line);
+}
+
+function nearbyWorkflowStepName(lines: readonly string[], runLineIndex: number): string | undefined {
+	for (let index = runLineIndex - 1; index >= Math.max(0, runLineIndex - 5); index -= 1) {
+		const line = lines[index] ?? "";
+		const listName = line.match(/^\s*-\s+name:\s*(.+?)\s*$/)?.[1];
+		if (listName !== undefined) return cleanYamlScalar(listName);
+		const plainName = line.match(/^\s+name:\s*(.+?)\s*$/)?.[1];
+		if (plainName !== undefined) return cleanYamlScalar(plainName);
+		if (/^\s*-\s+(uses|run):/.test(line)) return undefined;
+	}
+	return undefined;
+}
+
+function workflowRunCommand(
+	lines: readonly string[],
+	lineIndex: number,
+): { readonly command: string } | undefined {
+	const line = lines[lineIndex] ?? "";
+	const match = line.match(/^(\s*)-?\s*run:\s*(.*?)\s*$/);
+	if (match === null) return undefined;
+	const indent = match[1]?.length ?? 0;
+	const rest = match[2] ?? "";
+	if (rest === "|" || rest === ">" || rest.length === 0) {
+		const block = workflowRunBlock(lines, lineIndex + 1, indent);
+		return block.length === 0 ? undefined : { command: block.join("\n") };
+	}
+	return { command: cleanYamlScalar(rest) };
+}
+
+function workflowRunBlock(lines: readonly string[], startIndex: number, parentIndent: number): readonly string[] {
+	const block: string[] = [];
+	for (let index = startIndex; index < lines.length; index += 1) {
+		const line = lines[index] ?? "";
+		if (line.trim().length === 0) {
+			if (block.length > 0) block.push("");
+			continue;
+		}
+		const indent = leadingSpaceCount(line);
+		if (indent <= parentIndent) break;
+		block.push(line.slice(parentIndent + 2).trimEnd());
+	}
+	return block;
+}
+
+function leadingSpaceCount(line: string): number {
+	return line.length - line.trimStart().length;
+}
+
+function workflowTaskKind(text: string): WorkflowFact["taskKind"] {
+	const lowered = text.toLowerCase();
+	if (/\b(deploy|deployment|release|publish|docker\s+push|terraform\s+apply|supabase\s+db\s+push|vercel|fly\s+deploy|doctl)\b/.test(lowered)) {
+		return "deployment";
+	}
+	if (/\b(test|typecheck|lint|check|verify|validate|build|ci|coverage|tsc|eslint|biome)\b/.test(lowered)) {
+		return "validation";
+	}
+	return "other";
+}
+
+function cleanYamlScalar(value: string): string {
+	const trimmed = value.trim().replace(/\s+#.*$/, "");
+	if (trimmed.startsWith('"') && trimmed.endsWith('"')) return trimmed.slice(1, -1);
+	if (trimmed.startsWith("'") && trimmed.endsWith("'")) return trimmed.slice(1, -1);
+	return trimmed;
+}
+
+function isString(value: string | undefined): value is string {
+	return value !== undefined && value.length > 0;
+}
 
 function extractTerraformResources(text: string): readonly IacFact[] {
 	return terraformBlocks(text)

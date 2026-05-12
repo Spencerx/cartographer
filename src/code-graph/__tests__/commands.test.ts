@@ -31,6 +31,69 @@ describe("runCartographer", () => {
 			flags: { out: outDir },
 		});
 		expect(viewed.ok).toBe(true);
+
+		const verified = await runCliJson(["cartographer", "verify", "--out", outDir, "--json"]);
+		expect(verified["ok"]).toBe(true);
+		expect(verified["schemaVersion"]).toBe("cartographer.code-graph.v1");
+		expect(arrayField(verified, "issues")).toEqual([]);
+
+		const fresh = await runCliJson([
+			"cartographer",
+			"verify",
+			"--out",
+			outDir,
+			"--root",
+			join(tempDir, "repo"),
+			"--fresh",
+			"--json",
+		]);
+		expect(fresh["ok"]).toBe(true);
+		expect(recordField(fresh, "freshness")["ok"]).toBe(true);
+
+		await writeFile(join(tempDir, "repo/src/drift.ts"), "export const drift = true;\n");
+		const drifted = runCli([
+			"cartographer",
+			"verify",
+			"--out",
+			outDir,
+			"--root",
+			join(tempDir, "repo"),
+			"--fresh",
+			"--json",
+		]);
+		expect(drifted.exitCode).not.toBe(0);
+		const driftReport = parseCliJson(drifted.stdout);
+		const freshness = recordField(driftReport, "freshness");
+		expect(driftReport["ok"]).toBe(false);
+		expect(freshness["ok"]).toBe(false);
+		expect(numberField(recordField(recordField(freshness, "diffSummary"), "nodes"), "added")).toBeGreaterThan(0);
+	});
+
+	test("renders graph artifact diffs between snapshots", async () => {
+		const baseOutDir = join(tempDir, "base-codegraph");
+		const headOutDir = join(tempDir, "head-codegraph");
+		const base = await runCartographer({
+			command: "cartographer",
+			positionals: ["index"],
+			flags: { root: join(tempDir, "repo"), out: baseOutDir },
+		});
+		expect(base.ok).toBe(true);
+
+		await writeFile(join(tempDir, "repo/src/extra.ts"), "export const extra = true;\n");
+		const head = await runCartographer({
+			command: "cartographer",
+			positionals: ["index"],
+			flags: { root: join(tempDir, "repo"), out: headOutDir },
+		});
+		expect(head.ok).toBe(true);
+
+		const diff = await runCliJson(["cartographer", "diff", "--base", baseOutDir, "--head", headOutDir, "--json"]);
+		const summary = recordField(diff, "summary");
+		const nodes = recordField(diff, "nodes");
+		const addedNodes = arrayField(nodes, "added");
+
+		expect(numberField(recordField(summary, "nodes"), "added")).toBeGreaterThan(0);
+		expect(addedNodes.map((entry) => stringField(recordValue(entry), "id"))).toContain("file:src/extra.ts");
 	});
 
 	test("renders slice and impact JSON for harness consumers", async () => {

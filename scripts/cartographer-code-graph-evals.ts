@@ -9,6 +9,7 @@ import {
 	checkGraphFirstAdoption,
 	checkTraceExpectations,
 	codeGraphSnapshotSchema,
+	isSourceReadCommand,
 	runCartographerPreflight,
 	writeCodeGraphArtifacts,
 	type CodeGraphSnapshot,
@@ -79,6 +80,7 @@ interface CodexTraceCase {
 	readonly id: string;
 	readonly title: string;
 	readonly condition: "baseline-direct" | "graph-prompted" | "graph-mandated";
+	readonly comparisonGroup?: string | undefined;
 	readonly trace: string;
 	readonly expectedAdopted: boolean;
 	readonly requireGraphFirst?: boolean | undefined;
@@ -111,6 +113,7 @@ async function main(): Promise<void> {
 	suites.push(await arkPreflightSuite(options, join(runOutDir, "ark")));
 	if (options.profile === "codex") {
 		suites.push(await codexTraceSuite(options));
+		suites.push(await codexOutcomeSuite(options));
 	}
 	if (options.profile === "codex-live") {
 		suites.push(await liveCodexSuite(options, runOutDir));
@@ -336,6 +339,169 @@ async function codexTraceSuite(options: EvalOptions): Promise<EvalSuite> {
 		const suite = await readCodexTraceSuite(options.traceSuite);
 		return suite.cases.flatMap((traceCase) => codexTraceChecks(traceCase, options.traceSuite));
 	});
+}
+
+async function codexOutcomeSuite(options: EvalOptions): Promise<EvalSuite> {
+	return timedSuite("codex-trace-outcomes", "recorded graph-vs-baseline outcome comparisons", async () => {
+		const suite = await readCodexTraceSuite(options.traceSuite);
+		const groups = groupedComparisonCases(suite.cases);
+		if (groups.length === 0) return [failed("comparison-groups", "no comparison groups were configured")];
+		return groups.flatMap((group) => codexOutcomeChecks(group, options.traceSuite));
+	});
+}
+
+interface CodexComparisonGroup {
+	readonly id: string;
+	readonly baseline: CodexTraceCase;
+	readonly graph: CodexTraceCase;
+}
+
+function groupedComparisonCases(cases: readonly CodexTraceCase[]): readonly CodexComparisonGroup[] {
+	const grouped = new Map<string, CodexTraceCase[]>();
+	for (const traceCase of cases) {
+		if (traceCase.comparisonGroup === undefined) continue;
+		grouped.set(traceCase.comparisonGroup, [...(grouped.get(traceCase.comparisonGroup) ?? []), traceCase]);
+	}
+	return [...grouped.entries()].flatMap(([id, groupCases]) => {
+		const baseline = groupCases.find((traceCase) => traceCase.condition === "baseline-direct");
+		const graph = groupCases.find((traceCase) => traceCase.condition !== "baseline-direct");
+		return baseline === undefined || graph === undefined ? [] : [{ id, baseline, graph }];
+	});
+}
+
+function codexOutcomeChecks(group: CodexComparisonGroup, suitePath: string): readonly EvalCheck[] {
+	const baseline = traceOutcomeMetrics(group.baseline, suitePath);
+	const graph = traceOutcomeMetrics(group.graph, suitePath);
+	return [
+		check(`${group.id}:expected-evidence-non-regression`, () =>
+			graph.expectations.passed &&
+			baseline.expectations.passed &&
+			graph.expectations.metrics.finalPathHitCount >= baseline.expectations.metrics.finalPathHitCount &&
+			graph.expectations.metrics.executedCommandHitCount >= baseline.expectations.metrics.executedCommandHitCount
+				? passed("graph-assisted trace preserved expected file and validation evidence", {
+						baseline: baseline.expectations.metrics,
+						graph: graph.expectations.metrics,
+					})
+				: failed(`${group.id}:expected-evidence-non-regression`, "graph-assisted trace regressed expected evidence", {
+						baseline: baseline.expectations,
+						graph: graph.expectations,
+					}),
+		),
+		check(`${group.id}:source-read-noise`, () =>
+			graph.irrelevantSourceReadCount <= baseline.irrelevantSourceReadCount &&
+			graph.sourceReadCount <= baseline.sourceReadCount
+				? passed("graph-assisted trace did not increase source-read noise", {
+						baseline: sourceReadMetrics(baseline),
+						graph: sourceReadMetrics(graph),
+					})
+				: failed(`${group.id}:source-read-noise`, "graph-assisted trace increased source-read noise", {
+						baseline: sourceReadMetrics(baseline),
+						graph: sourceReadMetrics(graph),
+					}),
+		),
+		check(`${group.id}:unsupported-path-claims`, () =>
+			graph.unsupportedPathClaimCount <= baseline.unsupportedPathClaimCount
+				? passed("graph-assisted trace did not increase unsupported path claims", {
+						baseline: unsupportedPathMetrics(baseline),
+						graph: unsupportedPathMetrics(graph),
+					})
+				: failed(`${group.id}:unsupported-path-claims`, "graph-assisted trace increased unsupported path claims", {
+						baseline: unsupportedPathMetrics(baseline),
+						graph: unsupportedPathMetrics(graph),
+					}),
+		),
+	];
+}
+
+interface TraceOutcomeMetrics {
+	readonly expectations: ReturnType<typeof checkTraceExpectations>;
+	readonly sourceReadCount: number;
+	readonly irrelevantSourceReadCount: number;
+	readonly unsupportedPathClaimCount: number;
+	readonly sourceReadCommands: readonly string[];
+	readonly irrelevantSourceReadCommands: readonly string[];
+	readonly unsupportedPathClaims: readonly string[];
+}
+
+function traceOutcomeMetrics(traceCase: CodexTraceCase, suitePath: string): TraceOutcomeMetrics {
+	const events = readRuntimeEventsSync(resolve(dirname(suitePath), traceCase.trace));
+	const expectationInput = traceExpectationInput(traceCase) ?? {};
+	const expectedPaths = expectedPathClaims(traceCase);
+	const sourceReadCommands = toolCommands(events).filter(isSourceReadCommand);
+	const irrelevantSourceReadCommands = sourceReadCommands.filter((command) => !containsAnyExpectedPath(command, expectedPaths));
+	const unsupportedPathClaims = finalPathClaims(events).filter((path) => !expectedPaths.has(path));
+	return {
+		expectations: checkTraceExpectations(events, expectationInput),
+		sourceReadCount: sourceReadCommands.length,
+		irrelevantSourceReadCount: irrelevantSourceReadCommands.length,
+		unsupportedPathClaimCount: unsupportedPathClaims.length,
+		sourceReadCommands,
+		irrelevantSourceReadCommands,
+		unsupportedPathClaims,
+	};
+}
+
+function sourceReadMetrics(metrics: TraceOutcomeMetrics): Record<string, unknown> {
+	return {
+		sourceReadCount: metrics.sourceReadCount,
+		irrelevantSourceReadCount: metrics.irrelevantSourceReadCount,
+		irrelevantSourceReadCommands: metrics.irrelevantSourceReadCommands,
+	};
+}
+
+function unsupportedPathMetrics(metrics: TraceOutcomeMetrics): Record<string, unknown> {
+	return {
+		unsupportedPathClaimCount: metrics.unsupportedPathClaimCount,
+		unsupportedPathClaims: metrics.unsupportedPathClaims,
+	};
+}
+
+function containsAnyExpectedPath(command: string, expectedPaths: ReadonlySet<string>): boolean {
+	return [...expectedPaths].some((path) => command.includes(path));
+}
+
+function expectedPathClaims(traceCase: CodexTraceCase): ReadonlySet<string> {
+	return new Set([
+		...(traceCase.expectedPaths ?? []),
+		...(traceCase.expectedCommands ?? []).flatMap(pathClaimsFromText),
+		...(traceCase.expectedExecutedCommands ?? []).flatMap(pathClaimsFromText),
+	]);
+}
+
+function pathClaimsFromText(text: string): readonly string[] {
+	return [...text.matchAll(/\b(?:src|apps|packages|infra|supabase|\.github)\/[A-Za-z0-9_./:-]+/g)].map(
+		(match) => match[0],
+	);
+}
+
+function toolCommands(events: readonly RuntimeEvent[]): readonly string[] {
+	return events.flatMap((event) => {
+		if (event.type !== "tool_use") return [];
+		const command = commandTextFromRuntimeData(event.data);
+		return command === undefined ? [] : [command];
+	});
+}
+
+function commandTextFromRuntimeData(value: unknown): string | undefined {
+	if (!isRecord(value)) return undefined;
+	const command = value["command"];
+	if (typeof command === "string") return command;
+	if (Array.isArray(command)) return command.join(" ");
+	const item = value["item"];
+	if (!isRecord(item)) return undefined;
+	const itemCommand = item["command"];
+	if (typeof itemCommand === "string") return itemCommand;
+	if (Array.isArray(itemCommand)) return itemCommand.join(" ");
+	return undefined;
+}
+
+function finalPathClaims(events: readonly RuntimeEvent[]): readonly string[] {
+	const text = events.flatMap((event) => {
+		if (event.type !== "result") return [];
+		const data = isRecord(event.data) ? event.data : {};
+		return typeof data["text"] === "string" ? [data["text"]] : [];
+	}).join("\n");
+	return [...new Set(pathClaimsFromText(text))];
 }
 
 function codexTraceChecks(traceCase: CodexTraceCase, suitePath: string): readonly EvalCheck[] {

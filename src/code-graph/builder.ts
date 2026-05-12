@@ -9,6 +9,7 @@ import {
 	extractSqlReferenceFacts,
 	extractSqlFacts,
 	extractSymbols,
+	extractWorkflowFacts,
 	readText,
 } from "./extractors.ts";
 import { createRepoInventory, type GitInventory, type InventoryFile } from "./inventory.ts";
@@ -163,6 +164,7 @@ async function addFileFacts(graph: MutableGraph, file: InventoryFile, allPaths: 
 	addEnvVars(graph, file, text);
 	addSqlFacts(graph, file, text);
 	addIacFacts(graph, file, text);
+	addWorkflowFacts(graph, file, text);
 }
 
 function addImports(graph: MutableGraph, file: InventoryFile, text: string, allPaths: ReadonlySet<string>): void {
@@ -273,6 +275,87 @@ function addIacFacts(graph: MutableGraph, file: InventoryFile, text: string): vo
 		});
 		addEdge(graph, "CONFIGURES", fileNodeId(file.path), nodeId, fact.kind);
 	}
+}
+
+function addWorkflowFacts(graph: MutableGraph, file: InventoryFile, text: string): void {
+	const facts = extractWorkflowFacts(file, text);
+	for (const fact of facts) addWorkflowNode(graph, file, fact);
+	for (const fact of facts) addWorkflowEdges(graph, file, fact);
+}
+
+function addWorkflowNode(
+	graph: MutableGraph,
+	file: InventoryFile,
+	fact: ReturnType<typeof extractWorkflowFacts>[number],
+): void {
+	addNode(graph, {
+		id: workflowNodeId(file, fact),
+		kind: "Config",
+		label: fact.name,
+		path: file.path,
+		metadata: {
+			configKind: "ci-workflow",
+			workflowFactKind: fact.kind,
+			workflowName: fact.workflowName,
+			taskKind: fact.taskKind,
+			...(fact.jobId === undefined ? {} : { jobId: fact.jobId }),
+			...(fact.stepIndex === undefined ? {} : { stepIndex: fact.stepIndex }),
+			...(fact.command === undefined ? {} : { command: fact.command }),
+		},
+		provenance: provenance("ci-parser", [{ path: file.path, startLine: fact.line, endLine: fact.line }]),
+	});
+}
+
+function addWorkflowEdges(
+	graph: MutableGraph,
+	file: InventoryFile,
+	fact: ReturnType<typeof extractWorkflowFacts>[number],
+): void {
+	const nodeId = workflowNodeId(file, fact);
+	if (fact.kind === "workflow") {
+		addProvenanceEdge(
+			graph,
+			"CONFIGURES",
+			fileNodeId(file.path),
+			nodeId,
+			"ci workflow",
+			provenance("ci-parser", [{ path: file.path, startLine: fact.line, endLine: fact.line }]),
+		);
+		return;
+	}
+	if (fact.kind === "job") {
+		addProvenanceEdge(
+			graph,
+			"CONFIGURES",
+			workflowRootNodeId(file),
+			nodeId,
+			fact.taskKind,
+			provenance("ci-parser", [{ path: file.path, startLine: fact.line, endLine: fact.line }]),
+		);
+		return;
+	}
+	addProvenanceEdge(
+		graph,
+		"TASK_DEPENDS_ON",
+		workflowJobNodeId(file, fact.jobId ?? "unknown"),
+		nodeId,
+		fact.taskKind,
+		provenance("ci-parser", [{ path: file.path, startLine: fact.line, endLine: fact.line }]),
+	);
+}
+
+function workflowNodeId(file: InventoryFile, fact: ReturnType<typeof extractWorkflowFacts>[number]): string {
+	if (fact.kind === "workflow") return workflowRootNodeId(file);
+	if (fact.kind === "job") return workflowJobNodeId(file, fact.jobId ?? fact.name);
+	return `config:ci:${file.path}:job:${fact.jobId ?? "unknown"}:run:${fact.stepIndex ?? fact.line}`;
+}
+
+function workflowRootNodeId(file: InventoryFile): string {
+	return `config:ci:${file.path}`;
+}
+
+function workflowJobNodeId(file: InventoryFile, jobId: string): string {
+	return `config:ci:${file.path}:job:${jobId}`;
 }
 
 async function addSqlReferenceEdges(graph: MutableGraph, files: readonly InventoryFile[]): Promise<void> {

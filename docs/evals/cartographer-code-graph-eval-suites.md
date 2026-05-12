@@ -1,6 +1,6 @@
 # Cartographer Code Graph Eval Suites
 
-Status: deterministic smoke, recorded Codex trace, and explicit live Codex profiles implemented
+Status: deterministic smoke, recorded Codex trace, recorded outcome comparison, and explicit live Codex profiles implemented
 Owner: Cartographer
 Last updated: 2026-05-12
 
@@ -277,6 +277,12 @@ type CartographerHarnessTask = {
 ```
 
 The runner should record the normalized task record, prompt revision, graph mode, workspace root, trace path, and report path for every live-agent sample. That schema is a plan target only; it must not be scaffolded until approval.
+
+Current recorded-trace runner support:
+
+- `codex-trace-adoption` checks baseline, graph-prompted, and graph-mandated traces for graph adoption, graph-first behavior, expected final evidence, and executed validation commands.
+- `codex-trace-outcomes` compares configured graph-assisted traces against their baseline group and fails if graph assistance regresses expected file/validation evidence, source-read noise, or unsupported path claims.
+- Recorded outcome comparison is deterministic and does not claim live model distribution quality. Live distribution claims remain opt-in and require the explicit live profile.
 
 Candidate tasks:
 

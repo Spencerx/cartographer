@@ -41,18 +41,18 @@ Current package scripts include Cartographer graph commands, normal checks, and 
 - `eval:cartographer`
 - `eval:cartographer:smoke`
 - `eval:cartographer:baseline`
+- `eval:cartographer:codex`
 - `typecheck`
 - `test`
-
-Current package scripts do not include:
-
-- `eval:cartographer:codex`
 
 Current report state:
 
 - `docs/reports/cartographer-code-graph-smoke-2026-05-12T00-18-52-454Z.json` exists
+- `docs/reports/cartographer-code-graph-codex-2026-05-12T00-22-58-653Z.json` exists and records the first failed codex runner attempt
+- `docs/reports/cartographer-code-graph-codex-2026-05-12T00-23-23-289Z.json` exists
 - `scripts/cartographer-code-graph-evals.ts` exists
 - the latest smoke report passed with 3 suites and 0 failures
+- the latest recorded Codex trace report passed with 4 suites and 0 failures
 
 ## Read-Only ARK Target Evidence
 
@@ -149,13 +149,13 @@ The remaining failures are specific to live agent and judge layers. They become 
 
 | # | Check | Status | Evidence |
 | --- | --- | --- | --- |
-| 30 | Pass rate is not saturated at 100% | n/a | Only two smoke reports exist, so pass-rate saturation cannot be assessed yet. |
+| 30 | Pass rate is not saturated at 100% | n/a | Two smoke reports and two recorded Codex reports exist; the sample is still too small for saturation analysis. |
 | 31 | Suite changes over time | pass | The plan/audit docs changed as standalone CLI and ARK target evidence landed. |
 | 32 | Single-signal optimization risk is addressed | pass | The plan scores recall, precision, hallucinated paths, slice size, adoption, validation recall, omissions, and timings together. |
 
 ## Hard Findings
 
-- HARD GAP: There is no repeatable standalone live Codex eval profile in this repo yet.
+- HARD GAP: There is no live Codex execution profile in this repo yet; `eval:cartographer:codex` currently scores recorded trace fixtures.
 - HARD GAP: Baseline profile semantics are still shallow; `eval:cartographer:baseline` currently runs the deterministic contract profile rather than a richer fixture baseline comparison.
 - HARD GAP: Semantic-overlay usefulness remains unsupported until gold labels, judge prompts, and agreement metrics exist.
 

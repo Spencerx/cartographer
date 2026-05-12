@@ -34,6 +34,7 @@
 		"eval:cartographer": "bun run scripts/cartographer-code-graph-evals.ts",
 		"eval:cartographer:smoke": "bun run scripts/cartographer-code-graph-evals.ts -- --profile smoke",
 		"eval:cartographer:baseline": "bun run scripts/cartographer-code-graph-evals.ts -- --profile baseline",
+		"eval:cartographer:codex": "bun run scripts/cartographer-code-graph-evals.ts -- --profile codex",
 		"typecheck": "tsc --noEmit",
 		"test": "bun test src/code-graph"
 	},

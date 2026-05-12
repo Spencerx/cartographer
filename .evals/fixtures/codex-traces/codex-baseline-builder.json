@@ -1,0 +1,58 @@
+[
+  {
+    "type": "tool_use",
+    "turnId": "codex-baseline-builder",
+    "timestamp": "2026-05-12T00:00:00.000Z",
+    "data": {
+      "status": "started",
+      "item": {
+        "type": "commandExecution",
+        "command": "rg \"buildCodeGraph|CodeGraphNode\" src/code-graph"
+      }
+    }
+  },
+  {
+    "type": "tool_use",
+    "turnId": "codex-baseline-builder",
+    "timestamp": "2026-05-12T00:00:12.000Z",
+    "data": {
+      "status": "started",
+      "item": {
+        "type": "commandExecution",
+        "command": "sed -n '1,220p' src/code-graph/builder.ts"
+      }
+    }
+  },
+  {
+    "type": "tool_use",
+    "turnId": "codex-baseline-builder",
+    "timestamp": "2026-05-12T00:00:24.000Z",
+    "data": {
+      "status": "started",
+      "item": {
+        "type": "commandExecution",
+        "command": "sed -n '1,220p' src/code-graph/extractors.ts"
+      }
+    }
+  },
+  {
+    "type": "tool_use",
+    "turnId": "codex-baseline-builder",
+    "timestamp": "2026-05-12T00:01:12.000Z",
+    "data": {
+      "status": "started",
+      "item": {
+        "type": "commandExecution",
+        "command": "bun test src/code-graph/__tests__/builder.test.ts"
+      }
+    }
+  },
+  {
+    "type": "result",
+    "turnId": "codex-baseline-builder",
+    "timestamp": "2026-05-12T00:01:35.000Z",
+    "data": {
+      "text": "CODEX_BUILDER_BASELINE_OK\nPrimary files: src/code-graph/builder.ts, src/code-graph/extractors.ts, src/code-graph/graph-store.ts\nValidation run: bun test src/code-graph/__tests__/builder.test.ts"
+    }
+  }
+]

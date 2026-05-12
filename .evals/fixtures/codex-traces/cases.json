@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "description": "Recorded Codex-style RuntimeEvent fixtures for Cartographer graph adoption and understanding checks. These are deterministic trace fixtures, not live Codex runs.",
+  "cases": [
+    {
+      "id": "codex-baseline-builder",
+      "title": "Baseline Codex-style builder exploration without graph use",
+      "condition": "baseline-direct",
+      "trace": "codex-baseline-builder.json",
+      "expectedAdopted": false,
+      "expectedText": ["CODEX_BUILDER_BASELINE_OK"],
+      "expectedPaths": [
+        "src/code-graph/builder.ts",
+        "src/code-graph/extractors.ts",
+        "src/code-graph/graph-store.ts"
+      ],
+      "expectedCommands": ["bun test src/code-graph/__tests__/builder.test.ts"],
+      "expectedExecutedCommands": ["bun test src/code-graph/__tests__/builder.test.ts"]
+    },
+    {
+      "id": "codex-graph-mandated-builder",
+      "title": "Graph-mandated Codex-style builder exploration",
+      "condition": "graph-mandated",
+      "trace": "codex-graph-mandated-builder.json",
+      "expectedAdopted": true,
+      "requireGraphFirst": true,
+      "expectedText": ["CODEX_BUILDER_OK"],
+      "expectedPaths": [
+        "src/code-graph/builder.ts",
+        "src/code-graph/extractors.ts",
+        "src/code-graph/graph-store.ts"
+      ],
+      "expectedCommands": ["bun test src/code-graph/__tests__/builder.test.ts"],
+      "expectedExecutedCommands": ["bun test src/code-graph/__tests__/builder.test.ts"]
+    },
+    {
+      "id": "codex-graph-prompted-adoption",
+      "title": "Graph-prompted Codex-style adoption implementation lookup",
+      "condition": "graph-prompted",
+      "trace": "codex-graph-prompted-adoption.json",
+      "expectedAdopted": true,
+      "requireGraphFirst": true,
+      "expectedText": ["CODEX_UNDERSTANDING_OK"],
+      "expectedPaths": ["src/code-graph/adoption.ts"],
+      "expectedCommands": ["bun test src/code-graph"],
+      "expectedExecutedCommands": ["bun test src/code-graph"]
+    }
+  ]
+}

@@ -1,14 +1,20 @@
 #!/usr/bin/env bun
 
-import { mkdir } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { readFileSync } from "node:fs";
+import { mkdir, readFile } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 import {
+	analyzeGraphCommandAdoption,
 	buildCodeGraph,
+	checkGraphFirstAdoption,
+	checkTraceExpectations,
 	codeGraphSnapshotSchema,
 	runCartographerPreflight,
 	writeCodeGraphArtifacts,
 	type CodeGraphSnapshot,
+	type TraceExpectationInput,
 } from "../src/index.ts";
+import type { RuntimeEvent } from "../src/core/types.ts";
 
 type EvalStatus = "passed" | "failed" | "skipped" | "informational";
 
@@ -52,11 +58,31 @@ interface EvalOptions {
 	readonly reportDir: string;
 	readonly outBase: string;
 	readonly maxFileBytes: number;
+	readonly traceSuite: string;
 }
 
 interface TimedResult<T> {
 	readonly value: T;
 	readonly durationMs: number;
+}
+
+interface CodexTraceSuite {
+	readonly version: number;
+	readonly description: string;
+	readonly cases: readonly CodexTraceCase[];
+}
+
+interface CodexTraceCase {
+	readonly id: string;
+	readonly title: string;
+	readonly condition: "baseline-direct" | "graph-prompted" | "graph-mandated";
+	readonly trace: string;
+	readonly expectedAdopted: boolean;
+	readonly requireGraphFirst?: boolean | undefined;
+	readonly expectedText?: readonly string[] | undefined;
+	readonly expectedPaths?: readonly string[] | undefined;
+	readonly expectedCommands?: readonly string[] | undefined;
+	readonly expectedExecutedCommands?: readonly string[] | undefined;
 }
 
 const STATUS_ORDER: Record<EvalStatus, number> = {
@@ -80,6 +106,9 @@ async function main(): Promise<void> {
 	suites.push(await graphContractSuite("self", process.cwd(), join(runOutDir, "self"), options.maxFileBytes));
 	suites.push(await graphContractSuite("ark", options.targetRoot, join(runOutDir, "ark"), options.maxFileBytes));
 	suites.push(await arkPreflightSuite(options, join(runOutDir, "ark")));
+	if (options.profile === "codex") {
+		suites.push(await codexTraceSuite(options));
+	}
 
 	const finishedAtMs = Date.now();
 	const report: EvalReport = {
@@ -97,6 +126,7 @@ async function main(): Promise<void> {
 			"docs/evals/cartographer-code-graph-plan-integrity-audit.md",
 			".evals/research/cartographer-code-graph-trace-survey.md",
 			".evals/research/cartographer-axia-stress-run.md",
+			".evals/fixtures/codex-traces/cases.json",
 		],
 		suites,
 		failures: suites.flatMap((suite) =>
@@ -110,6 +140,100 @@ async function main(): Promise<void> {
 	await Bun.write(reportPath, `${JSON.stringify(report, null, 2)}\n`);
 	console.log(`${report.status}: wrote ${reportPath}`);
 	if (report.status === "failed") process.exitCode = 1;
+}
+
+async function codexTraceSuite(options: EvalOptions): Promise<EvalSuite> {
+	return timedSuite("codex-trace-adoption", "recorded Codex-style graph adoption traces", async () => {
+		const suite = await readCodexTraceSuite(options.traceSuite);
+		return suite.cases.flatMap((traceCase) => codexTraceChecks(traceCase, options.traceSuite));
+	});
+}
+
+function codexTraceChecks(traceCase: CodexTraceCase, suitePath: string): readonly EvalCheck[] {
+	const tracePath = resolve(dirname(suitePath), traceCase.trace);
+	return [
+		check(`${traceCase.id}:adoption`, () => {
+			const events = readRuntimeEventsSync(tracePath);
+			const summary = analyzeGraphCommandAdoption(events);
+			return summary.adopted === traceCase.expectedAdopted
+				? passed(`${traceCase.id} adoption matched expected condition`, {
+						condition: traceCase.condition,
+						adopted: summary.adopted,
+						eventCount: summary.eventCount,
+						traceDurationMs: summary.traceDurationMs,
+						toolCommandCount: summary.toolCommandCount,
+						sourceReadBeforeGraphCount: summary.sourceReadBeforeGraphCount,
+						firstGraphCommandOffsetMs: summary.firstGraphCommandOffsetMs,
+						graphPreflightResultCount: summary.graphPreflightResultCount,
+						firstGraphPreflightDurationMs: summary.firstGraphPreflightDurationMs,
+						firstGraphPreflightTimings: summary.firstGraphPreflightTimings,
+					})
+				: failed(`${traceCase.id}:adoption`, `${traceCase.id} adoption did not match expected condition`, {
+						expectedAdopted: traceCase.expectedAdopted,
+						actualAdopted: summary.adopted,
+						firstGraphCommand: summary.firstGraphCommand,
+						sourceReadCommandsBeforeGraph: summary.sourceReadCommandsBeforeGraph,
+					});
+		}),
+		...(traceCase.requireGraphFirst === true
+			? [
+					check(`${traceCase.id}:graph-first`, () => {
+						const summary = analyzeGraphCommandAdoption(readRuntimeEventsSync(tracePath));
+						const graphFirst = checkGraphFirstAdoption(summary);
+						return graphFirst.passed
+							? passed(`${traceCase.id} used graph context before source reads`)
+							: failed(`${traceCase.id}:graph-first`, `${traceCase.id} graph-first gate failed`, {
+									failures: graphFirst.failures,
+									sourceReadCommandsBeforeGraph: summary.sourceReadCommandsBeforeGraph,
+								});
+					}),
+				]
+			: []),
+		check(`${traceCase.id}:expectations`, () => {
+			const expectationInput = traceExpectationInput(traceCase);
+			if (expectationInput === undefined) {
+				return passed(`${traceCase.id} has no final-response expectations`);
+			}
+			const expectation = checkTraceExpectations(readRuntimeEventsSync(tracePath), expectationInput);
+			return expectation.passed
+				? passed(`${traceCase.id} final response and executed command expectations passed`, {
+						...expectation.metrics,
+					})
+				: failed(`${traceCase.id}:expectations`, `${traceCase.id} trace expectation failed`, {
+						failures: expectation.failures,
+						metrics: expectation.metrics,
+					});
+		}),
+	];
+}
+
+async function readCodexTraceSuite(path: string): Promise<CodexTraceSuite> {
+	const value = JSON.parse(await readFile(path, "utf8")) as unknown;
+	if (!isRecord(value) || !Array.isArray(value.cases)) {
+		throw new Error(`Codex trace suite is invalid: ${path}`);
+	}
+	return value as CodexTraceSuite;
+}
+
+function readRuntimeEventsSync(path: string): readonly RuntimeEvent[] {
+	const value = JSON.parse(readFileSync(path, "utf8")) as unknown;
+	if (!Array.isArray(value)) throw new Error(`trace must be a RuntimeEvent[]: ${path}`);
+	return value.map((event, index) => {
+		if (isRuntimeEvent(event)) return event;
+		throw new Error(`trace event ${index} is not a RuntimeEvent: ${path}`);
+	});
+}
+
+function traceExpectationInput(traceCase: CodexTraceCase): TraceExpectationInput | undefined {
+	const input: TraceExpectationInput = {
+		...(traceCase.expectedText === undefined ? {} : { text: traceCase.expectedText }),
+		...(traceCase.expectedPaths === undefined ? {} : { path: traceCase.expectedPaths }),
+		...(traceCase.expectedCommands === undefined ? {} : { command: traceCase.expectedCommands }),
+		...(traceCase.expectedExecutedCommands === undefined
+			? {}
+			: { executedCommand: traceCase.expectedExecutedCommands }),
+	};
+	return Object.keys(input).length === 0 ? undefined : input;
 }
 
 async function graphContractSuite(
@@ -344,6 +468,7 @@ function evalOptions(argv: readonly string[]): EvalOptions {
 		reportDir: resolve(flags.get("report-dir") ?? "docs/reports"),
 		outBase: resolve(flags.get("out-base") ?? "/tmp/cartographer-code-graph-evals"),
 		maxFileBytes: Number.parseInt(flags.get("max-file-bytes") ?? "500000", 10),
+		traceSuite: resolve(flags.get("trace-suite") ?? ".evals/fixtures/codex-traces/cases.json"),
 	};
 }
 
@@ -370,6 +495,20 @@ function timestampForRunId(iso: string): string {
 
 function summaryId(summary: string): string {
 	return summary.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+function isRuntimeEvent(value: unknown): value is RuntimeEvent {
+	return (
+		isRecord(value) &&
+		typeof value.type === "string" &&
+		typeof value.turnId === "string" &&
+		typeof value.timestamp === "string" &&
+		"data" in value
+	);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 await main();

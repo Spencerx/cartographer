@@ -28,9 +28,10 @@ Run the deterministic Cartographer eval smoke profile:
 
 ```bash
 bun run eval:cartographer:smoke
+bun run eval:cartographer:codex
 ```
 
-The smoke profile indexes this repo and uses `/Users/saint/dev/agent-runtime-kernel` as a read-only external target. It writes graph artifacts under `/tmp/cartographer-code-graph-evals` and append-only JSON reports under `docs/reports`.
+The smoke and recorded Codex-trace profiles index this repo and use `/Users/saint/dev/agent-runtime-kernel` as a read-only external target. They write graph artifacts under `/tmp/cartographer-code-graph-evals` and append-only JSON reports under `docs/reports`.
 
 Core commands:
 

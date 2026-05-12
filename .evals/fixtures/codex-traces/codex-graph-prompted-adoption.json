@@ -1,0 +1,61 @@
+[
+  {
+    "type": "tool_use",
+    "turnId": "codex-graph-prompted-adoption",
+    "timestamp": "2026-05-12T00:00:00.000Z",
+    "data": {
+      "status": "started",
+      "item": {
+        "type": "commandExecution",
+        "command": "bun run cartographer:preflight -- --root /Users/saint/dev/agent-runtime-kernel --live --path src/code-graph/adoption.ts --out /tmp/cartographer-code-graph-evals/codex-graph-prompted-adoption"
+      }
+    }
+  },
+  {
+    "type": "tool_result",
+    "turnId": "codex-graph-prompted-adoption",
+    "timestamp": "2026-05-12T00:00:00.290Z",
+    "data": {
+      "name": "cartographer.preflight",
+      "command": "bun run cartographer:preflight -- --root /Users/saint/dev/agent-runtime-kernel --live --path src/code-graph/adoption.ts",
+      "durationMs": 290,
+      "timings": {
+        "loadGraphMs": 270,
+        "buildContextMs": 18,
+        "renderPromptMs": 2
+      }
+    }
+  },
+  {
+    "type": "tool_use",
+    "turnId": "codex-graph-prompted-adoption",
+    "timestamp": "2026-05-12T00:00:04.000Z",
+    "data": {
+      "status": "started",
+      "item": {
+        "type": "commandExecution",
+        "command": "sed -n '1,260p' src/code-graph/adoption.ts"
+      }
+    }
+  },
+  {
+    "type": "tool_use",
+    "turnId": "codex-graph-prompted-adoption",
+    "timestamp": "2026-05-12T00:00:11.000Z",
+    "data": {
+      "status": "started",
+      "item": {
+        "type": "commandExecution",
+        "command": "bun test src/code-graph"
+      }
+    }
+  },
+  {
+    "type": "result",
+    "turnId": "codex-graph-prompted-adoption",
+    "timestamp": "2026-05-12T00:00:20.000Z",
+    "data": {
+      "text": "CODEX_UNDERSTANDING_OK\nRelevant implementation: src/code-graph/adoption.ts\nValidation run: bun test src/code-graph"
+    }
+  }
+]

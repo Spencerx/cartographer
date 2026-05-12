@@ -1,6 +1,6 @@
 # Cartographer Code Graph Eval Suites
 
-Status: deterministic smoke implemented; baseline and live Codex profiles still planned
+Status: deterministic smoke and recorded Codex trace profiles implemented; live Codex execution still planned
 Owner: Cartographer
 Last updated: 2026-05-12
 
@@ -365,17 +365,26 @@ Implemented commands:
 bun run eval:cartographer
 bun run eval:cartographer:smoke
 bun run eval:cartographer:baseline
+bun run eval:cartographer:codex
 ```
 
-Current generated report:
+Current generated reports:
 
 - `docs/reports/cartographer-code-graph-smoke-2026-05-12T00-18-52-454Z.json`
-- status: `passed`
-- duration: 844ms
-- suites: `graph-contract:self`, `graph-contract:ark`, `ark-preflight`
-- failures: 0
+- `docs/reports/cartographer-code-graph-codex-2026-05-12T00-22-58-653Z.json`
+- `docs/reports/cartographer-code-graph-codex-2026-05-12T00-23-23-289Z.json`
 
-The current runner is deterministic and does not call live Codex or a judge model. It writes graph artifacts under `/tmp/cartographer-code-graph-evals` and treats ARK as a read-only target.
+Latest smoke report:
+
+- status: `passed`, duration: 844ms, suites: `graph-contract:self`, `graph-contract:ark`, `ark-preflight`, failures: 0
+
+Latest recorded Codex trace report:
+
+- status: `passed`, duration: 787ms, suites: `graph-contract:self`, `graph-contract:ark`, `ark-preflight`, `codex-trace-adoption`, failures: 0
+
+The earlier codex report at `00-22-58-653Z` is retained as an append-only failed implementation receipt; the failure was a local file-read API bug in the runner, not a graph/adoption failure.
+
+The current runner is deterministic and does not call live Codex or a judge model. It writes graph artifacts under `/tmp/cartographer-code-graph-evals`, treats ARK as a read-only target, and scores recorded Codex-style `RuntimeEvent[]` fixtures under `.evals/fixtures/codex-traces`.
 
 ## Runner Profiles
 
@@ -431,6 +440,8 @@ Expected future command after live profile implementation:
 ```bash
 bun run eval:cartographer:codex
 ```
+
+Current implementation note: `eval:cartographer:codex` is a recorded trace profile today. A future live execution mode should require an explicit live flag or separate command so CI never launches live Codex by accident.
 
 ## Report Shape
 
@@ -495,7 +506,7 @@ Every agent-harness report must also include:
 
 ## Implementation Gate
 
-This document is now both the plan and the contract for the implemented deterministic smoke runner. It still does not add a judge prompt, live Codex runner, or calibration labels.
+This document is now both the plan and the contract for the implemented deterministic smoke runner and recorded Codex trace profile. It still does not add a judge prompt, live Codex execution mode, or calibration labels.
 
 Approval or a separate implementation decision is still needed before scaffolding:
 

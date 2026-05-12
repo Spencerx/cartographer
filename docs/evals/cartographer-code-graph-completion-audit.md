@@ -1,6 +1,6 @@
 # Cartographer Code Graph Completion Audit
 
-Status: partial - deterministic smoke runner implemented, live agent eval still missing
+Status: partial - smoke and recorded Codex trace evals implemented, live agent execution still missing
 Last updated: 2026-05-12
 
 ## Objective
@@ -28,8 +28,8 @@ The objective is complete only when Cartographer itself has:
 | Use ARK as test target base | On 2026-05-12, the standalone CLI indexed `/Users/saint/dev/agent-runtime-kernel` read-only and wrote artifacts to `/tmp/cartographer-ark-codegraph`. No graph artifacts were written inside ARK. | Done as read-only evidence |
 | Measure graph speed | ARK index: 0.41s wall time, 227,573,760 bytes max RSS. ARK live preflight: 368ms total, 353ms graph load, 13ms context build, 2ms prompt render. | Partial - manual evidence only |
 | Measure codebase understanding | ARK preflight for `src/code-graph/commands.ts` surfaced 17 primary paths, 2 focused test paths, 0 findings, and a compact 11-command validation list led by `builder.test.ts`, `commands.test.ts`, and module-level `bun test ./src/code-graph`. The compact payload also records `limits.validationCommands: 20` and `omissions.validationCommands: 103` so evals know broader command data was intentionally withheld. | Partial - one manual target only |
-| Use coding-agent harnesses such as Codex | Existing docs describe adoption and trace checks, and `cartographer adoption` can score runtime traces. There is no standalone repeatable Codex eval profile in this repo yet. | Partial |
-| Produce runnable eval reports | `scripts/cartographer-code-graph-evals.ts` exists, `package.json` exposes `eval:cartographer`, `eval:cartographer:smoke`, and `eval:cartographer:baseline`, and `docs/reports/cartographer-code-graph-smoke-2026-05-12T00-18-52-454Z.json` records a passing smoke run. | Done for deterministic smoke |
+| Use coding-agent harnesses such as Codex | `eval:cartographer:codex` now scores recorded Codex-style `RuntimeEvent[]` fixtures for baseline-direct, graph-prompted, and graph-mandated conditions. It checks graph adoption, graph-first ordering, expected files, expected validation commands, and executed validation commands. It does not run live Codex yet. | Done for recorded traces, live execution missing |
+| Produce runnable eval reports | `scripts/cartographer-code-graph-evals.ts` exists, `package.json` exposes `eval:cartographer`, `eval:cartographer:smoke`, `eval:cartographer:baseline`, and `eval:cartographer:codex`. Passing reports exist for smoke and recorded Codex profiles. | Done for deterministic smoke and recorded Codex traces |
 | Keep deterministic graph separate from semantic overlay | CLI supports deterministic graph artifacts plus candidate/reviewed overlay annotations. PRD and feature docs state that overlays cannot rescue missing graph facts. | Done |
 | Verify current implementation | `bun run typecheck`, `bun test src/code-graph --timeout 120000`, and standalone self-index passed after the repo split. | Done |
 
@@ -127,6 +127,7 @@ bun run typecheck
 bun test src/code-graph --timeout 120000
 bun run cartographer:index -- --root . --out /tmp/cartographer-plugin-codegraph --max-file-bytes 500000
 bun run eval:cartographer:smoke
+bun run eval:cartographer:codex
 ```
 
 Results:
@@ -135,6 +136,7 @@ Results:
 - Graph tests passed: 63 pass, 0 fail, 1,418 assertions.
 - Self-index passed: 64 files, 791 nodes, 1,118 edges, 0 findings.
 - Smoke eval passed and wrote `docs/reports/cartographer-code-graph-smoke-2026-05-12T00-18-52-454Z.json`.
+- Recorded Codex trace eval passed and wrote `docs/reports/cartographer-code-graph-codex-2026-05-12T00-23-23-289Z.json`.
 
 ## Current Smoke Eval Evidence
 
@@ -153,19 +155,36 @@ Suites:
 
 The ARK target run remained read-only. Graph artifacts were written under `/tmp/cartographer-code-graph-evals`, not inside `/Users/saint/dev/agent-runtime-kernel`.
 
+## Current Recorded Codex Trace Evidence
+
+Report:
+
+- path: `docs/reports/cartographer-code-graph-codex-2026-05-12T00-23-23-289Z.json`
+- status: `passed`
+- duration: 787ms
+- failures: 0
+
+Trace cases:
+
+- `codex-baseline-builder`: `baseline-direct`, expected no graph adoption, 3 source reads before graph, final file/command expectations passed, executed `bun test src/code-graph/__tests__/builder.test.ts`.
+- `codex-graph-mandated-builder`: `graph-mandated`, graph command at 0ms, 0 source reads before graph, graph-first gate passed, final file/command expectations passed, executed `bun test src/code-graph/__tests__/builder.test.ts`.
+- `codex-graph-prompted-adoption`: `graph-prompted`, graph command at 0ms, 0 source reads before graph, graph-first gate passed, final file/command expectations passed, executed `bun test src/code-graph`.
+
+These are recorded `RuntimeEvent[]` fixtures under `.evals/fixtures/codex-traces`. They make the adoption and codebase-understanding gates repeatable, but they are not fresh live Codex runs.
+
 ## Missing Work
 
 The objective is not complete. The deterministic smoke runner now exists, but the strongest remaining gaps are:
 
 - structured task fixtures converted from `.evals/research/cartographer-gold-task-candidates.md`
 - baseline profile semantics beyond the current deterministic contract checks
-- repeatable Codex/adoption profile for graph-first codebase-understanding traces
+- live Codex execution profile for fresh graph-first codebase-understanding traces
 - calibrated judge prompt and human labels for semantic overlay usefulness
 
 ## Completion Verdict
 
 Partial.
 
-The standalone CLI, PRD, deterministic smoke eval runner, package scripts, and first smoke report are in place. The CLI has proven it can index ARK as a read-only external test target and write an append-only report from this repo.
+The standalone CLI, PRD, deterministic smoke eval runner, recorded Codex trace profile, package scripts, and reports are in place. The CLI has proven it can index ARK as a read-only external test target and write append-only reports from this repo.
 
-The remaining completion gap is the live agent layer: repeatable Codex-style traces that compare baseline-direct, graph-prompted, and graph-mandated workflows without making unsupported quality-lift claims.
+The remaining completion gap is live agent execution: fresh Codex runs that produce new traces for baseline-direct, graph-prompted, and graph-mandated workflows without making unsupported quality-lift claims.

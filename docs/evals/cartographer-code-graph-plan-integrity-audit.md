@@ -1,6 +1,6 @@
 # Cartographer Code Graph Plan Integrity Audit
 
-Status: deterministic smoke runner audited, live agent eval still planned
+Status: smoke, recorded Codex, and live Codex evals audited
 Date: 2026-05-12
 
 ## Synthesis
@@ -157,10 +157,10 @@ The remaining failures are specific to live agent and judge layers. They become 
 | 31 | Suite changes over time | pass | The plan/audit docs changed as standalone CLI and ARK target evidence landed. |
 | 32 | Single-signal optimization risk is addressed | pass | The plan scores recall, precision, hallucinated paths, slice size, adoption, validation recall, omissions, and timings together. |
 
-## Hard Findings
+## Future Expansion Findings
 
-- HARD GAP: Baseline profile semantics are still shallow; `eval:cartographer:baseline` currently runs the deterministic contract profile rather than a richer fixture baseline comparison.
-- HARD GAP: Semantic-overlay usefulness remains unsupported until gold labels, judge prompts, and agreement metrics exist.
+- Future gap: baseline profile semantics are still shallow; `eval:cartographer:baseline` currently runs the deterministic contract profile rather than a richer fixture baseline comparison.
+- Future gap: semantic-overlay usefulness remains unsupported until gold labels, judge prompts, and agreement metrics exist.
 
 ## Anti-Pattern Findings
 

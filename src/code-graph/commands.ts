@@ -43,6 +43,8 @@ import {
 } from "./context.ts";
 import { diffCodeGraphs, renderCodeGraphDiff } from "./diff.ts";
 import type { CodeGraphDiff } from "./diff.ts";
+import { SCANNER_VERSION } from "./graph-store.ts";
+import { createRepoInventory } from "./inventory.ts";
 import { runCartographerMcpServer } from "./mcp.ts";
 import { annotateSliceWithOpenRouter, DEFAULT_OPENROUTER_MODEL } from "./openrouter.ts";
 import {
@@ -62,6 +64,11 @@ import {
 } from "./notes.ts";
 import { impactGraph, renderSlice, sliceGraph, summarizeGraph } from "./query.ts";
 import { runCartographerPreflight, type CartographerPreflightResult } from "./preflight.ts";
+import {
+	readSqliteIndexCache,
+	sqliteCodeGraphExists,
+	type IndexCacheEntry,
+} from "./sqlite-store.ts";
 import type { AgentAnnotation, GraphContext, GraphContextCompact, GraphSlice } from "./types.ts";
 
 type CartographerHandler = (args: ParsedArgs) => Promise<Result<void, HarnessError>>;
@@ -119,6 +126,11 @@ async function runIndex(args: ParsedArgs): Promise<Result<void, HarnessError>> {
 		const root = flagString(args, "root", ".");
 		const outDir = graphOutDir(args);
 		const maxFileBytes = numberFlag(args, "max-file-bytes", 750_000);
+		const reused = await maybeReuseIndex(args, root, outDir, maxFileBytes);
+		if (reused !== undefined) {
+			await writeOut(`${summarizeGraph(reused.graph)}Artifacts: ${outDir}\nReused: ${reused.reason}\n`);
+			return ok(undefined);
+		}
 		const graph = await buildCodeGraph({ root, maxFileBytes });
 		await writeCodeGraphArtifacts(graph, { outDir, mapPath: mapPath(args, outDir), debugJson: hasFlag(args, "debug-json") });
 		await writeOut(`${summarizeGraph(graph)}Artifacts: ${outDir}\n`);
@@ -126,6 +138,42 @@ async function runIndex(args: ParsedArgs): Promise<Result<void, HarnessError>> {
 	} catch (cause) {
 		return err(HarnessError.from("INTERNAL", cause));
 	}
+}
+
+interface IndexReuse {
+	readonly graph: Awaited<ReturnType<typeof readCodeGraph>>;
+	readonly reason: string;
+}
+
+async function maybeReuseIndex(
+	args: ParsedArgs,
+	root: string,
+	outDir: string,
+	maxFileBytes: number,
+): Promise<IndexReuse | undefined> {
+	if (hasFlag(args, "force") || hasFlag(args, "no-incremental") || hasFlag(args, "debug-json")) return undefined;
+	if (!(await sqliteCodeGraphExists(outDir))) return undefined;
+	const inventory = await createRepoInventory(root, maxFileBytes);
+	const cache = await readSqliteIndexCache(outDir).catch(() => []);
+	if (!indexCacheMatchesInventory(cache, inventory.files)) return undefined;
+	const graph = await readCodeGraph(outDir);
+	if (graph.manifest.root !== inventory.root) return undefined;
+	return { graph, reason: `${cache.length} unchanged file hash(es), scanner ${SCANNER_VERSION}` };
+}
+
+function indexCacheMatchesInventory(
+	cache: readonly IndexCacheEntry[],
+	files: readonly { readonly path: string; readonly hash: string }[],
+): boolean {
+	if (cache.length === 0 || cache.length !== files.length) return false;
+	const cacheByPath = new Map(cache.map((entry) => [entry.path, entry]));
+	for (const file of files) {
+		const cached = cacheByPath.get(file.path);
+		if (cached === undefined) return false;
+		if (cached.hash !== file.hash) return false;
+		if (cached.extractorVersion !== SCANNER_VERSION) return false;
+	}
+	return true;
 }
 
 async function runView(args: ParsedArgs): Promise<Result<void, HarnessError>> {
@@ -1284,6 +1332,8 @@ function cartographerHelp(): string {
 		"  --allow-large-output       Permit impact depth above normal cap",
 		"  --debug-graph              Emit full nested graph payloads for debug/evals",
 		"  --debug-json               For index, also write exports/graph.debug.json",
+		"  --force                    For index, rebuild even when the file-hash cache is unchanged",
+		"  --no-incremental           For index, disable unchanged-repo artifact reuse",
 		"  --live                     Build in memory instead of reading <out>/graph.sqlite",
 		"  --dry-run                  For annotate, render the slice without calling OpenRouter",
 		"  --model <model>            OpenRouter model. Default: openai/gpt-5.5",

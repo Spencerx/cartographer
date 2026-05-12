@@ -295,7 +295,9 @@ const contextSelectorPrefixes = [
 const contextPathNodeKinds = new Set<CodeGraphNode["kind"]>([
 	"File",
 	"Doc",
-	"Config",
+	"CiWorkflow",
+	"CiJob",
+	"CiRunStep",
 	"GeneratedArtifact",
 	"IaCModule",
 	"IaCResource",

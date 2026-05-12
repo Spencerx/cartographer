@@ -1,0 +1,46 @@
+[
+  {
+    "type": "tool_use",
+    "turnId": "codex-cartographer-brief-plus-audit-supabase-removal",
+    "timestamp": "2026-05-12T00:00:00.000Z",
+    "data": {
+      "status": "started",
+      "item": {
+        "type": "commandExecution",
+        "command": "bun run cartographer:brief -- --out /tmp/cartographer-code-graph-evals/supabase --audit /tmp/cartographer-code-graph-evals/supabase/audits/supabase-removal.json --mode prd --budget 8000 --json"
+      }
+    }
+  },
+  {
+    "type": "tool_use",
+    "turnId": "codex-cartographer-brief-plus-audit-supabase-removal",
+    "timestamp": "2026-05-12T00:00:08.000Z",
+    "data": {
+      "status": "started",
+      "item": {
+        "type": "commandExecution",
+        "command": "sed -n '1,160p' apps/web/src/auth/client.ts"
+      }
+    }
+  },
+  {
+    "type": "tool_use",
+    "turnId": "codex-cartographer-brief-plus-audit-supabase-removal",
+    "timestamp": "2026-05-12T00:00:20.000Z",
+    "data": {
+      "status": "started",
+      "item": {
+        "type": "commandExecution",
+        "command": "bun run typecheck"
+      }
+    }
+  },
+  {
+    "type": "result",
+    "turnId": "codex-cartographer-brief-plus-audit-supabase-removal",
+    "timestamp": "2026-05-12T00:00:36.000Z",
+    "data": {
+      "text": "CODEX_SUPABASE_AUDIT_OK\nPrimary files: apps/web/package.json, apps/web/src/auth/client.ts, supabase/migrations/0001_policy.sql\nValidation run: bun run typecheck"
+    }
+  }
+]

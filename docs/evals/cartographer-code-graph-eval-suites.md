@@ -253,8 +253,8 @@ Tier: live harness, opt-in profile.
 Initial conditions:
 
 - `baseline-direct`: agent has normal shell/filesystem tools and no graph mandate.
-- `graph-prompted`: prompt instructs the agent to run `cartographer preflight --path <target>` before source reads. The runner may normalize this to the equivalent `cartographer context --path <target> --depth 1 --compact --json` call for scoring.
-- `graph-mandated`: harness sets `graphPreflight: { path: <target> }`, then checks the first tool phase and fails if the agent reads source before graph context.
+- `cartographer-brief`: prompt instructs the agent to run or consume `cartographer brief` before source reads.
+- `cartographer-brief-plus-audit`: prompt gives the agent both bounded brief context and an audit ledger for removal/migration work.
 
 Future runner task records should make the harness executable without encoding task knowledge in the runner itself:
 
@@ -263,10 +263,11 @@ type CartographerHarnessTask = {
   id: string;
   workspaceRoot: string;
   graphMode: "persisted" | "live";
-  condition: "baseline-direct" | "graph-prompted" | "graph-mandated";
+  condition: "baseline-direct" | "cartographer-brief" | "cartographer-brief-plus-audit";
   prompt: string;
   startSelector?: string;
-  graphPreflight?: { path: string; required: boolean };
+  cartographerBrief?: { selector: string; required: boolean };
+  auditLedger?: { path: string; required: boolean };
   expectedPaths: string[];
   expectedCommands: string[];
   expectedExecutedCommands?: string[];
@@ -280,7 +281,7 @@ The runner should record the normalized task record, prompt revision, graph mode
 
 Current recorded-trace runner support:
 
-- `codex-trace-adoption` checks baseline, graph-prompted, and graph-mandated traces for graph adoption, graph-first behavior, expected final evidence, and executed validation commands.
+- `codex-trace-adoption` checks baseline, `cartographer-brief`, and `cartographer-brief-plus-audit` traces for graph adoption, graph-first behavior, expected final evidence, and executed validation commands.
 - `codex-trace-outcomes` compares configured graph-assisted traces against their baseline group and fails if graph assistance regresses expected file/validation evidence, source-read noise, or unsupported path claims.
 - Recorded outcome comparison is deterministic and does not claim live model distribution quality. Live distribution claims remain opt-in and require the explicit live profile.
 
@@ -382,14 +383,23 @@ Current generated reports:
 - `docs/reports/cartographer-code-graph-codex-2026-05-12T00-23-23-289Z.json`
 - `docs/reports/cartographer-code-graph-codex-live-2026-05-12T00-27-41-445Z.json`
 - `docs/reports/cartographer-code-graph-codex-live-2026-05-12T00-28-27-531Z.json`
+- `docs/reports/cartographer-code-graph-smoke-2026-05-12T23-12-15-511Z.json`
+- `docs/reports/cartographer-code-graph-codex-2026-05-12T23-11-16-037Z.json`
+- `docs/reports/cartographer-code-graph-codex-2026-05-12T23-15-48-522Z.json`
+- `docs/reports/cartographer-code-graph-codex-2026-05-12T23-16-49-362Z.json`
+- `docs/reports/cartographer-code-graph-smoke-2026-05-12T23-20-04-229Z.json`
+- `docs/reports/cartographer-code-graph-codex-2026-05-12T23-20-04-228Z.json`
 
 Latest smoke report:
 
-- status: `passed`, duration: 844ms, suites: `graph-contract:self`, `graph-contract:ark`, `ark-preflight`, failures: 0
+- status: `passed`, suites: `graph-contract:self`, `graph-contract:ark`, `brief-packet:self`, `removal-audit:fixture`, `notes-lifecycle:fixture`, `monorepo-scale:fixture`, `ark-preflight`, failures: 0
 
 Latest recorded Codex trace report:
 
-- status: `passed`, duration: 787ms, suites: `graph-contract:self`, `graph-contract:ark`, `ark-preflight`, `codex-trace-adoption`, failures: 0
+- status: `passed`, suites: `graph-contract:self`, `graph-contract:ark`, `brief-packet:self`, `removal-audit:fixture`, `notes-lifecycle:fixture`, `monorepo-scale:fixture`, `ark-preflight`, `codex-trace-adoption`, `codex-trace-outcomes`, failures: 0
+- Graph contract suites now include SQLite artifact compatibility checks in addition to in-memory graph schema checks.
+- Recorded traces include `baseline-direct`, `cartographer-brief`, and `cartographer-brief-plus-audit` conditions.
+- The Supabase removal comparison now requires a passing `audit-evidence-lift` check for `cartographer-brief-plus-audit`.
 
 The earlier codex report at `00-22-58-653Z` is retained as an append-only failed implementation receipt; the failure was a local file-read API bug in the runner, not a graph/adoption failure.
 

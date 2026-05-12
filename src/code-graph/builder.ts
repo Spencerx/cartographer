@@ -76,9 +76,10 @@ async function createBuildContext(options: BuildCodeGraphOptions): Promise<Build
 }
 
 function addInventoryNodes(graph: MutableGraph, inventory: BuildContext["inventory"]): void {
+	const packageDirs = packageDirectories(inventory.files);
 	addRootNode(graph, inventory.root);
 	addDirectoryNodes(graph, inventory.files);
-	for (const file of inventory.files) addFileNode(graph, file);
+	for (const file of inventory.files) addFileNode(graph, file, packageDirs);
 }
 
 async function addInventoryFacts(graph: MutableGraph, inventory: BuildContext["inventory"]): Promise<void> {
@@ -132,7 +133,8 @@ function addDirectoryNode(graph: MutableGraph, directory: string): void {
 	addEdge(graph, "CONTAINS", parentDirectoryNodeId(directory), id, "contains");
 }
 
-function addFileNode(graph: MutableGraph, file: InventoryFile): void {
+function addFileNode(graph: MutableGraph, file: InventoryFile, packageDirs: readonly string[]): void {
+	const packageDir = owningPackageDirectory(file.path, packageDirs);
 	addNode(graph, {
 		id: fileNodeId(file.path),
 		kind: fileNodeKind(file),
@@ -144,6 +146,9 @@ function addFileNode(graph: MutableGraph, file: InventoryFile): void {
 			fileKind: file.kind,
 			gitStatus: file.gitStatus,
 			readableText: file.readableText,
+			packageId: `package:${packageDir}`,
+			packageDir,
+			surface: surfaceForPath(file.path),
 		},
 		provenance: provenance("filesystem", [{ path: file.path, hash: file.hash }], freshnessFor(file)),
 	});
@@ -155,6 +160,38 @@ function fileNodeKind(file: InventoryFile): CodeGraphNode["kind"] {
 	if (file.kind === "generated") return "GeneratedArtifact";
 	if (file.path.endsWith(".md")) return "Doc";
 	return "File";
+}
+
+function packageDirectories(files: readonly InventoryFile[]): readonly string[] {
+	const dirs = new Set(
+		files
+			.filter((file) => file.path.endsWith("package.json"))
+			.map((file) => parentDirectory(file.path)),
+	);
+	dirs.add(".");
+	return [...dirs].sort((left, right) => right.length - left.length);
+}
+
+function owningPackageDirectory(path: string, packageDirs: readonly string[]): string {
+	return packageDirs.find((dir) => pathBelongsToPackage(path, dir)) ?? ".";
+}
+
+function pathBelongsToPackage(path: string, packageDir: string): boolean {
+	return packageDir === "." || path === packageDir || path.startsWith(`${packageDir}/`);
+}
+
+function surfaceForPath(path: string): string {
+	if (/^(\.github\/workflows|\.gitlab-ci|circle\.yml|buildkite)/.test(path)) return "ci";
+	if (/(^|\/)(migrations?|supabase\/migrations|db|database)\//i.test(path) || path.endsWith(".sql")) return "database";
+	if (/(^|\/)(infra|iac|terraform|terragrunt)\//i.test(path) || /\.(tf|tfvars|hcl)$/.test(path)) return "iac";
+	if (/(^|\/)(docs?|adr)\//i.test(path) || /\.mdx?$/.test(path)) return "docs";
+	if (/(^|\/)(generated|gen|__generated__)\//i.test(path)) return "generated";
+	if (/(^|\/)(__tests__|tests?|e2e|fixtures?)\//i.test(path) || /\.(test|spec)\.[cm]?[jt]sx?$/.test(path)) return "tests";
+	if (/(^|\/)(scripts?|bin)\//i.test(path)) return "scripts";
+	if (/(^|\/)(apps?\/[^/]+\/src|pages|app|components|features)\//i.test(path) || /\.(tsx|jsx|css|scss|vue|svelte)$/.test(path)) return "frontend";
+	if (/(^|\/)(api|server|backend|services?|workers?)\//i.test(path)) return "backend";
+	if (/(^|\/)(packages?|shared|libs?)\//i.test(path)) return "shared";
+	return "source";
 }
 
 async function addFileFacts(graph: MutableGraph, file: InventoryFile, allPaths: ReadonlySet<string>): Promise<void> {
@@ -351,7 +388,7 @@ function addWorkflowNode(
 ): void {
 	addNode(graph, {
 		id: workflowNodeId(file, fact),
-		kind: "Config",
+		kind: workflowNodeKind(fact),
 		label: fact.name,
 		path: file.path,
 		metadata: {
@@ -365,6 +402,12 @@ function addWorkflowNode(
 		},
 		provenance: provenance("ci-parser", [{ path: file.path, startLine: fact.line, endLine: fact.line }]),
 	});
+}
+
+function workflowNodeKind(fact: ReturnType<typeof extractWorkflowFacts>[number]): CodeGraphNode["kind"] {
+	if (fact.kind === "workflow") return "CiWorkflow";
+	if (fact.kind === "job") return "CiJob";
+	return "CiRunStep";
 }
 
 function addWorkflowEdges(

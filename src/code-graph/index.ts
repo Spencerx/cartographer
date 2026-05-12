@@ -4,6 +4,7 @@ export { buildRemovalAudit, readAuditLedger, renderAuditLedgerMarkdown, verifyRe
 export { buildBrief, renderBriefPrompt } from "./brief.ts";
 export { buildGraphContext, compactGraphContext, contextSelectorFor } from "./context.ts";
 export { checkCodeGraphArtifacts, readCodeGraph, renderMap, writeCodeGraphArtifacts, writeDebugJsonGraph, writeJsonlGraphExports } from "./artifacts.ts";
+export { readSqliteIndexCache } from "./sqlite-store.ts";
 export { diffCodeGraphs, renderCodeGraphDiff } from "./diff.ts";
 export { handleCartographerMcpRequest, runCartographerMcpServer } from "./mcp.ts";
 export { buildCartographerPreflightAdapterPayload, cartographerPreflightAdapterPayload } from "./preflight-adapter.ts";

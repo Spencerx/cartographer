@@ -65,11 +65,13 @@ Core deterministic facts include:
 - env var names only, never values
 - SQL migrations, tables, functions, policies, and triggers
 - Terraform resources/modules and dependency edges
-- GitHub Actions workflow/job/run-step config nodes
+- GitHub Actions workflow, job, and run-step nodes
 - test relationships and package validation commands
 - evidence paths, line anchors, file hashes, freshness, and provenance classes
 
 SQLite is the durable query substrate. Prompt context is compiled from it; agents do not receive the full graph unless a debug export is explicitly requested.
+
+The SQLite store includes an `index_cache` table keyed by file path/hash and scanner version. Running `index` against an unchanged repo reuses the existing graph artifacts instead of rebuilding them; pass `--force` or `--no-incremental` when a full rebuild is required. It also includes `file_membership` records with derived package and surface labels so monorepo briefs can expose whether a path belongs to frontend, backend, shared, database, IaC, CI, docs, generated, tests, fixtures, or scripts.
 
 ## Briefs
 
@@ -87,7 +89,7 @@ The packet includes:
 - resolved anchor
 - read-first paths
 - impact paths
-- package ownership
+- package ownership and file surface membership
 - external dependencies
 - env, DB, IaC, CI, and docs surfaces
 - focused tests

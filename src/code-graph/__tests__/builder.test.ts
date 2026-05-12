@@ -343,7 +343,7 @@ describe("buildCodeGraph", () => {
 		expect(graph.nodes.some((node) => node.id === "config:ci:.github/workflows/ci.yml")).toBe(true);
 		expect(graph.nodes.some((node) => node.id === "config:ci:.github/workflows/ci.yml:job:verify")).toBe(true);
 		expect(typecheckNode).toMatchObject({
-			kind: "Config",
+			kind: "CiRunStep",
 			label: "Typecheck",
 			metadata: {
 				workflowFactKind: "run",

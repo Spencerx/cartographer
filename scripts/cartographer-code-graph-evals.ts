@@ -10,6 +10,7 @@ import {
 	buildCodeGraph,
 	buildBrief,
 	buildRemovalAudit,
+	checkCodeGraphArtifacts,
 	checkGraphFirstAdoption,
 	checkTraceExpectations,
 	codeGraphSnapshotSchema,
@@ -87,7 +88,7 @@ interface CodexTraceSuite {
 interface CodexTraceCase {
 	readonly id: string;
 	readonly title: string;
-	readonly condition: "baseline-direct" | "graph-prompted" | "graph-mandated";
+	readonly condition: "baseline-direct" | "cartographer-brief" | "cartographer-brief-plus-audit";
 	readonly comparisonGroup?: string | undefined;
 	readonly trace: string;
 	readonly expectedAdopted: boolean;
@@ -121,6 +122,7 @@ async function main(): Promise<void> {
 	suites.push(await briefPacketSuite(process.cwd(), options.maxFileBytes));
 	suites.push(await removalAuditSuite(runOutDir, options.maxFileBytes));
 	suites.push(await notesLifecycleSuite(runOutDir, options.maxFileBytes));
+	suites.push(await monorepoScaleSuite(runOutDir, options.maxFileBytes));
 	suites.push(await arkPreflightSuite(options, join(runOutDir, "ark")));
 	if (options.profile === "codex") {
 		suites.push(await codexTraceSuite(options));
@@ -398,6 +400,21 @@ function codexOutcomeChecks(group: CodexComparisonGroup, suitePath: string): rea
 						graph: graph.expectations,
 					}),
 		),
+		...(group.graph.condition === "cartographer-brief-plus-audit"
+			? [
+					check(`${group.id}:audit-evidence-lift`, () =>
+						graph.expectations.metrics.finalPathHitCount > baseline.expectations.metrics.finalPathHitCount
+							? passed("brief-plus-audit trace increased final evidence coverage over baseline", {
+									baseline: baseline.expectations.metrics,
+									graph: graph.expectations.metrics,
+								})
+							: failed(`${group.id}:audit-evidence-lift`, "brief-plus-audit trace did not improve evidence coverage", {
+									baseline: baseline.expectations.metrics,
+									graph: graph.expectations.metrics,
+								}),
+					),
+				]
+			: []),
 		check(`${group.id}:source-read-noise`, () =>
 			graph.irrelevantSourceReadCount <= baseline.irrelevantSourceReadCount &&
 			graph.sourceReadCount <= baseline.sourceReadCount
@@ -611,6 +628,7 @@ async function graphContractSuite(
 	return timedSuite(`graph-contract:${id}`, `${id} graph contract`, async () => {
 		const timedGraph = await timed(() => buildCodeGraph({ root, maxFileBytes }));
 		await writeCodeGraphArtifacts(timedGraph.value, { outDir });
+		const compatibility = await checkCodeGraphArtifacts(outDir);
 		return [
 			check("schema-valid", () => {
 				codeGraphSnapshotSchema.parse(timedGraph.value);
@@ -619,6 +637,16 @@ async function graphContractSuite(
 			check("unique-node-ids", () => duplicateIdCheck("node", timedGraph.value.nodes.map((node) => node.id))),
 			check("unique-edge-ids", () => duplicateIdCheck("edge", timedGraph.value.edges.map((edge) => edge.id))),
 			check("edge-endpoints-exist", () => edgeEndpointCheck(timedGraph.value)),
+			check("sqlite-artifacts-valid", () =>
+				compatibility.ok
+					? passed("SQLite artifacts validate", {
+							schemaVersion: compatibility.schemaVersion,
+							totals: compatibility.totals,
+						})
+					: failed("sqlite-artifacts-valid", "SQLite artifact compatibility failed", {
+							issues: compatibility.issues,
+						}),
+			),
 			check("no-default-ignored-paths", () => ignoredPathCheck(timedGraph.value)),
 			check("no-env-secret-values", () => envSecretValueCheck(timedGraph.value)),
 		];
@@ -772,6 +800,61 @@ async function notesLifecycleSuite(runOutDir: string, maxFileBytes: number): Pro
 	});
 }
 
+async function monorepoScaleSuite(runOutDir: string, maxFileBytes: number): Promise<EvalSuite> {
+	return timedSuite("monorepo-scale:fixture", "monorepo package and surface scale fixture", async () => {
+		const root = await writeMonorepoScaleFixture();
+		const outDir = join(runOutDir, "monorepo-scale-artifacts");
+		const graph = await buildCodeGraph({ root, maxFileBytes });
+		await writeCodeGraphArtifacts(graph, { outDir });
+		const webBrief = buildBrief(graph, {
+			path: "apps/web/src/App.tsx",
+			requestedTokens: 8_000,
+			depth: 1,
+		});
+		const appNode = graph.nodes.find((node) => node.id === "file:apps/web/src/App.tsx");
+		const generatedNode = graph.nodes.find((node) => node.id === "file:packages/shared/src/generated/types.ts");
+		return [
+			check("package-membership", () =>
+				appNode?.metadata["packageId"] === "package:apps/web" &&
+				appNode.metadata["surface"] === "frontend"
+					? passed("frontend app file carries package and surface membership", {
+							packageId: appNode.metadata["packageId"],
+							surface: appNode.metadata["surface"],
+						})
+					: failed("package-membership", "frontend app file membership was missing or wrong", { metadata: appNode?.metadata }),
+			),
+			check("generated-surface", () =>
+				generatedNode?.metadata["surface"] === "generated"
+					? passed("generated file is classified as generated surface", {
+							packageId: generatedNode.metadata["packageId"],
+							surface: generatedNode.metadata["surface"],
+						})
+					: failed("generated-surface", "generated file surface was not classified as generated", {
+							metadata: generatedNode?.metadata,
+						}),
+			),
+			check("brief-budget", () =>
+				webBrief.budget.estimatedTokens <= webBrief.budget.requestedTokens
+					? passed("monorepo path brief stayed under budget", {
+							estimatedTokens: webBrief.budget.estimatedTokens,
+							requestedTokens: webBrief.budget.requestedTokens,
+							readFirst: webBrief.readFirst.length,
+							impact: webBrief.impact.length,
+						})
+					: failed("brief-budget", "monorepo path brief exceeded budget", { budget: webBrief.budget }),
+			),
+			check("brief-membership", () => {
+				const first = webBrief.readFirst[0];
+				return first?.path === "apps/web/src/App.tsx" &&
+					first.packageId === "package:apps/web" &&
+					first.surface === "frontend"
+					? passed("brief read-first path exposes package and surface membership", { first })
+					: failed("brief-membership", "brief did not expose expected package/surface membership", { first });
+			}),
+		];
+	});
+}
+
 async function writeSupabaseRemovalFixture(): Promise<string> {
 	const root = await mkdtemp(join(tmpdir(), "cartographer-removal-eval-"));
 	await mkdir(join(root, "src/auth"), { recursive: true });
@@ -806,6 +889,51 @@ async function writeNotesFixture(): Promise<string> {
 	await writeFile(join(root, "package.json"), JSON.stringify({ name: "notes-fixture", scripts: { test: "bun test" } }));
 	await writeFile(join(root, "src/index.ts"), "export const value = 1;\n");
 	await writeFile(join(root, "src/index.test.ts"), "import { value } from './index';\ntest('value', () => value);\n");
+	return root;
+}
+
+async function writeMonorepoScaleFixture(): Promise<string> {
+	const root = await mkdtemp(join(tmpdir(), "cartographer-monorepo-scale-eval-"));
+	await mkdir(join(root, "apps/web/src/__tests__"), { recursive: true });
+	await mkdir(join(root, "packages/shared/src/generated"), { recursive: true });
+	await mkdir(join(root, "db/migrations"), { recursive: true });
+	await mkdir(join(root, "infra"), { recursive: true });
+	await mkdir(join(root, ".github/workflows"), { recursive: true });
+	await mkdir(join(root, "docs"), { recursive: true });
+	await writeFile(
+		join(root, "package.json"),
+		JSON.stringify({
+			name: "monorepo-scale-fixture",
+			workspaces: ["apps/*", "packages/*"],
+			scripts: { typecheck: "tsc --noEmit", test: "bun test" },
+		}),
+	);
+	await writeFile(
+		join(root, "apps/web/package.json"),
+		JSON.stringify({
+			name: "@fixture/web",
+			dependencies: { "@fixture/shared": "workspace:*" },
+			scripts: { typecheck: "tsc --noEmit", test: "bun test" },
+		}),
+	);
+	await writeFile(
+		join(root, "packages/shared/package.json"),
+		JSON.stringify({ name: "@fixture/shared", scripts: { "build:types": "echo packages/shared/src/generated/types.ts" } }),
+	);
+	await writeFile(
+		join(root, "apps/web/src/App.tsx"),
+		"import { User } from '@fixture/shared';\nexport function App(props: { user: User }) { return <main>{props.user.id}</main>; }\n",
+	);
+	await writeFile(
+		join(root, "apps/web/src/__tests__/App.test.tsx"),
+		"import { App } from '../App';\ntest('app', () => App);\n",
+	);
+	await writeFile(join(root, "packages/shared/src/index.ts"), "export type User = { id: string };\n");
+	await writeFile(join(root, "packages/shared/src/generated/types.ts"), "export type GeneratedUser = { id: string };\n");
+	await writeFile(join(root, "db/migrations/0001_users.sql"), "create table public.users (id uuid primary key);\n");
+	await writeFile(join(root, "infra/main.tf"), "resource \"aws_s3_bucket\" \"assets\" {}\n");
+	await writeFile(join(root, ".github/workflows/ci.yml"), "name: ci\njobs:\n  test:\n    steps:\n      - run: bun run typecheck\n");
+	await writeFile(join(root, "docs/architecture.md"), "See `apps/web/src/App.tsx` and `infra/main.tf`.\n");
 	return root;
 }
 

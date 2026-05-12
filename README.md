@@ -42,7 +42,7 @@ The smoke, recorded Codex-trace, and explicit live Codex profiles index this rep
 Core commands:
 
 - `mcp` - run a thin newline-delimited MCP stdio wrapper over Cartographer graph operations.
-- `index` - build `.cartographer/manifest.json`, `.cartographer/graph.sqlite`, JSON schemas, and `CODEBASE_MAP.md`.
+- `index` - build `.cartographer/manifest.json`, `.cartographer/graph.sqlite`, JSON schemas, and `CODEBASE_MAP.md`; unchanged repos reuse prior artifacts through the SQLite file-hash cache unless `--force` or `--no-incremental` is passed.
 - `verify` - check graph artifact compatibility and, with `--fresh`, fail when persisted artifacts drift from the live repo.
 - `view` - summarize an existing graph.
 - `brief` - emit bounded agent-facing context around a path, package, env var, DB/IaC object, audit ledger, or changed files.

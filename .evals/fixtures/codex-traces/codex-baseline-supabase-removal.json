@@ -1,0 +1,46 @@
+[
+  {
+    "type": "tool_use",
+    "turnId": "codex-baseline-supabase-removal",
+    "timestamp": "2026-05-12T00:00:00.000Z",
+    "data": {
+      "status": "started",
+      "item": {
+        "type": "commandExecution",
+        "command": "rg -n \"supabase|SUPABASE|auth.uid\" apps supabase .github"
+      }
+    }
+  },
+  {
+    "type": "tool_use",
+    "turnId": "codex-baseline-supabase-removal",
+    "timestamp": "2026-05-12T00:00:18.000Z",
+    "data": {
+      "status": "started",
+      "item": {
+        "type": "commandExecution",
+        "command": "sed -n '1,120p' apps/web/package.json && sed -n '1,160p' apps/web/src/auth/client.ts"
+      }
+    }
+  },
+  {
+    "type": "tool_use",
+    "turnId": "codex-baseline-supabase-removal",
+    "timestamp": "2026-05-12T00:01:12.000Z",
+    "data": {
+      "status": "started",
+      "item": {
+        "type": "commandExecution",
+        "command": "bun run typecheck"
+      }
+    }
+  },
+  {
+    "type": "result",
+    "turnId": "codex-baseline-supabase-removal",
+    "timestamp": "2026-05-12T00:01:35.000Z",
+    "data": {
+      "text": "CODEX_SUPABASE_BASELINE_OK\nPrimary files: apps/web/package.json, apps/web/src/auth/client.ts\nValidation run: bun run typecheck"
+    }
+  }
+]

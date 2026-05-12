@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdir, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { Database } from "bun:sqlite";
+import { SCANNER_VERSION } from "./graph-store.ts";
 import { codeGraphSnapshotSchema } from "./schema.ts";
 import type {
 	AgentAnnotation,
@@ -65,6 +66,22 @@ interface AnnotationRow {
 	readonly json: string;
 }
 
+export interface IndexCacheEntry {
+	readonly path: string;
+	readonly hash: string;
+	readonly extractorVersion: string;
+	readonly factsHash: string;
+	readonly indexedAt: string;
+}
+
+interface IndexCacheRow {
+	readonly path: string;
+	readonly hash: string;
+	readonly extractor_version: string;
+	readonly facts_hash: string;
+	readonly indexed_at: string;
+}
+
 export function graphSqlitePath(outDir: string): string {
 	return join(outDir, GRAPH_SQLITE_FILE);
 }
@@ -102,6 +119,30 @@ export async function sqliteIntegrityCheck(outDir: string): Promise<readonly str
 	try {
 		const rows = db.query<{ integrity_check: string }, []>("PRAGMA integrity_check").all();
 		return rows.map((row) => row.integrity_check).filter((value) => value !== "ok");
+	} finally {
+		db.close();
+	}
+}
+
+export async function readSqliteIndexCache(outDir: string): Promise<readonly IndexCacheEntry[]> {
+	const db = new Database(graphSqlitePath(outDir), { readonly: true, create: false });
+	try {
+		const table = db.query<{ name: string }, [string]>(
+			"SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+		).get("index_cache");
+		if (table === null) return [];
+		return db
+			.query<IndexCacheRow, []>(
+				"SELECT path, hash, extractor_version, facts_hash, indexed_at FROM index_cache ORDER BY path",
+			)
+			.all()
+			.map((row) => ({
+				path: row.path,
+				hash: row.hash,
+				extractorVersion: row.extractor_version,
+				factsHash: row.facts_hash,
+				indexedAt: row.indexed_at,
+			}));
 	} finally {
 		db.close();
 	}
@@ -295,6 +336,26 @@ CREATE TABLE ci_facts (
   path_id INTEGER,
   line_start INTEGER
 );
+
+CREATE TABLE file_membership (
+  path_id INTEGER NOT NULL,
+  path TEXT NOT NULL,
+  package_node_id TEXT,
+  workspace_node_id TEXT,
+  surface TEXT NOT NULL,
+  generated INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY(path_id, surface)
+);
+
+CREATE TABLE index_cache (
+  path_id INTEGER PRIMARY KEY,
+  path TEXT NOT NULL UNIQUE,
+  hash TEXT NOT NULL,
+  extractor_version TEXT NOT NULL,
+  facts_hash TEXT NOT NULL,
+  indexed_at TEXT NOT NULL,
+  FOREIGN KEY(path_id) REFERENCES paths(id)
+);
 `);
 }
 
@@ -313,6 +374,7 @@ function writeSnapshot(db: Database, graph: CodeGraphSnapshot): void {
 		for (const finding of graph.findings) insertFinding(insert.finding, finding);
 		for (const annotation of graph.annotations) insert.annotation.run(annotation.id, JSON.stringify(annotation));
 		insertTypedFacts(insert, graph, paths);
+		insertIndexCache(insert, graph, paths);
 	});
 	insertAll();
 }
@@ -386,6 +448,12 @@ function prepareInsertStatements(db: Database) {
 		),
 		ciFact: db.prepare(
 			"INSERT INTO ci_facts (node_id, kind, workflow, job_id, step_index, task_kind, command, path_id, line_start) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		),
+		fileMembership: db.prepare(
+			"INSERT OR IGNORE INTO file_membership (path_id, path, package_node_id, workspace_node_id, surface, generated) VALUES (?, ?, ?, ?, ?, ?)",
+		),
+		indexCache: db.prepare(
+			"INSERT INTO index_cache (path_id, path, hash, extractor_version, facts_hash, indexed_at) VALUES (?, ?, ?, ?, ?, ?)",
 		),
 	};
 }
@@ -554,11 +622,11 @@ function insertTypedNodeFact(
 	if (node.kind === "IaCModule" || node.kind === "IaCResource") {
 		statements.iacFact.run(node.id, node.kind, stringMetadata(node, "resourceType") ?? null, node.label, pathId(paths, node.path), firstEvidenceLine(node));
 	}
-	if (node.kind === "Config") {
+	if (isCiKind(node.kind)) {
 		statements.ciFact.run(
 			node.id,
 			node.kind,
-			stringMetadata(node, "workflow") ?? null,
+			stringMetadata(node, "workflowName") ?? null,
 			stringMetadata(node, "jobId") ?? null,
 			numberMetadata(node, "stepIndex"),
 			stringMetadata(node, "taskKind") ?? null,
@@ -566,6 +634,19 @@ function insertTypedNodeFact(
 			pathId(paths, node.path),
 			firstEvidenceLine(node),
 		);
+	}
+	if (isFileMembershipNode(node)) {
+		const pathIdValue = pathId(paths, node.path);
+		if (pathIdValue !== null && node.path !== undefined) {
+			statements.fileMembership.run(
+				pathIdValue,
+				node.path,
+				stringMetadata(node, "packageId") ?? null,
+				null,
+				stringMetadata(node, "surface") ?? defaultSurfaceForNode(node),
+				node.kind === "GeneratedArtifact" ? 1 : 0,
+			);
+		}
 	}
 }
 
@@ -585,6 +666,33 @@ function insertTypedEdgeFact(
 	if (edge.kind === "TESTS") {
 		statements.testTarget.run(edge.from, edge.to, "heuristic", edge.label ?? null);
 	}
+}
+
+function insertIndexCache(
+	statements: ReturnType<typeof prepareInsertStatements>,
+	graph: CodeGraphSnapshot,
+	paths: ReadonlyMap<string, number>,
+): void {
+	for (const node of graph.nodes.filter(isIndexCacheNode)) {
+		const path = node.path;
+		if (path === undefined) continue;
+		const hash = firstEvidenceHash(node);
+		const pathIdValue = pathId(paths, path);
+		if (hash === null || pathIdValue === null) continue;
+		statements.indexCache.run(pathIdValue, path, hash, SCANNER_VERSION, factsHashForPath(graph, path), graph.manifest.generatedAt);
+	}
+}
+
+function factsHashForPath(graph: CodeGraphSnapshot, path: string): string {
+	const nodes = graph.nodes
+		.filter((node) => node.path === path || node.provenance.evidence.some((evidence) => evidence.path === path))
+		.map((node) => ({ id: node.id, kind: node.kind, label: node.label, metadata: node.metadata }))
+		.toSorted((left, right) => left.id.localeCompare(right.id));
+	const edges = graph.edges
+		.filter((edge) => edge.provenance.evidence.some((evidence) => evidence.path === path))
+		.map((edge) => ({ id: edge.id, kind: edge.kind, from: edge.from, to: edge.to, label: edge.label, metadata: edge.metadata }))
+		.toSorted((left, right) => left.id.localeCompare(right.id));
+	return createHash("sha256").update(JSON.stringify({ nodes, edges })).digest("hex");
 }
 
 function readManifest(db: Database): CodeGraphManifest {
@@ -715,6 +823,30 @@ function numberMetadata(node: CodeGraphNode | undefined, key: string): number | 
 function boolMetadata(node: CodeGraphNode | undefined, key: string): boolean | undefined {
 	const value = node?.metadata[key];
 	return typeof value === "boolean" ? value : undefined;
+}
+
+function isFileMembershipNode(node: CodeGraphNode): boolean {
+	return (
+		node.kind === "File" ||
+		node.kind === "Doc" ||
+		node.kind === "GeneratedArtifact" ||
+		isCiKind(node.kind)
+	) && node.path !== undefined;
+}
+
+function isIndexCacheNode(node: CodeGraphNode): boolean {
+	return (node.kind === "File" || node.kind === "Doc" || node.kind === "GeneratedArtifact") && node.path !== undefined;
+}
+
+function defaultSurfaceForNode(node: CodeGraphNode): string {
+	if (node.kind === "Doc") return "docs";
+	if (node.kind === "GeneratedArtifact") return "generated";
+	if (isCiKind(node.kind)) return "ci";
+	return "source";
+}
+
+function isCiKind(kind: CodeGraphNode["kind"]): boolean {
+	return kind === "CiWorkflow" || kind === "CiJob" || kind === "CiRunStep";
 }
 
 function firstEvidenceHash(node: CodeGraphNode | undefined): string | null {

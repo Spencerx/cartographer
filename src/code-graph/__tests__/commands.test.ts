@@ -1,7 +1,9 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { runCartographer } from "../commands.ts";
+import { graphSqlitePath, readSqliteIndexCache } from "../sqlite-store.ts";
 import { writeAnnotationOverlay } from "./annotation-overlay-fixture.ts";
 import { createCartographerFixture, removeCartographerFixture } from "./fixture.ts";
 
@@ -98,6 +100,34 @@ describe("runCartographer", () => {
 
 		expect(numberField(recordField(summary, "nodes"), "added")).toBeGreaterThan(0);
 		expect(addedNodes.map((entry) => stringField(recordValue(entry), "id"))).toContain("file:src/extra.ts");
+	});
+
+	test("reuses unchanged graph artifacts from the file-hash cache and records file membership", async () => {
+		const { indexed, outDir } = await indexFixtureRepo();
+		expect(indexed.ok).toBe(true);
+
+		const firstCache = await readSqliteIndexCache(outDir);
+		const srcCache = firstCache.find((entry) => entry.path === "src/index.ts");
+		expect(typeof srcCache?.hash).toBe("string");
+		expect(srcCache?.extractorVersion).toBe("0.1.0");
+		expect(typeof srcCache?.factsHash).toBe("string");
+		expect(fileMembership(outDir, "src/index.ts")).toEqual({
+			path: "src/index.ts",
+			package_node_id: "package:.",
+			surface: "source",
+			generated: 0,
+		});
+
+		const reused = runCli(["cartographer", "index", "--root", join(tempDir, "repo"), "--out", outDir]);
+		expect(reused.exitCode).toBe(0);
+		expect(reused.stdout).toContain("Reused: ");
+
+		await writeFile(join(tempDir, "repo/src/index.ts"), "export const value = 2;\n");
+		const rebuilt = runCli(["cartographer", "index", "--root", join(tempDir, "repo"), "--out", outDir]);
+		expect(rebuilt.exitCode).toBe(0);
+		expect(rebuilt.stdout).not.toContain("Reused: ");
+		const secondCache = await readSqliteIndexCache(outDir);
+		expect(secondCache.find((entry) => entry.path === "src/index.ts")?.hash).not.toBe(srcCache?.hash);
 	});
 
 	test("renders slice and impact JSON for harness consumers", async () => {
@@ -1486,6 +1516,25 @@ function validationCommandNames(slice: Record<string, unknown>): string[] {
 		expect(typeof name).toBe("string");
 		return name as string;
 	});
+}
+
+function fileMembership(outDir: string, path: string): {
+	readonly path: string;
+	readonly package_node_id: string | null;
+	readonly surface: string;
+	readonly generated: number;
+} | null {
+	const db = new Database(graphSqlitePath(outDir), { readonly: true, create: false });
+	try {
+		return db
+			.query<
+				{ path: string; package_node_id: string | null; surface: string; generated: number },
+				[string]
+			>("SELECT path, package_node_id, surface, generated FROM file_membership WHERE path = ?")
+			.get(path);
+	} finally {
+		db.close();
+	}
 }
 
 function expectValidationCommand(slice: Record<string, unknown>, expected: Record<string, string>): void {

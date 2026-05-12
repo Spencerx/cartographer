@@ -103,6 +103,8 @@ export interface BriefPathRecord {
 	readonly path: string;
 	readonly nodeId?: string | undefined;
 	readonly kind?: CodeGraphNode["kind"] | undefined;
+	readonly packageId?: string | undefined;
+	readonly surface?: string | undefined;
 	readonly reason: string;
 	readonly relationship: string;
 	readonly depth: number;
@@ -460,10 +462,14 @@ function pathRecords(
 	const nodesByPath = preferredNodesByPath(graph.nodes);
 	return paths.slice(0, limit).map((path, index) => {
 		const node = nodesByPath.get(path);
+		const packageId = stringMetadata(node, "packageId");
+		const surface = stringMetadata(node, "surface");
 		return {
 			rank: index + 1,
 			path,
 			...(node === undefined ? {} : { nodeId: node.id, kind: node.kind }),
+			...(packageId === undefined ? {} : { packageId }),
+			...(surface === undefined ? {} : { surface }),
 			reason,
 			relationship,
 			depth,
@@ -471,6 +477,11 @@ function pathRecords(
 			evidence: [{ path }],
 		};
 	});
+}
+
+function stringMetadata(node: CodeGraphNode | undefined, key: string): string | undefined {
+	const value = node?.metadata[key];
+	return typeof value === "string" ? value : undefined;
 }
 
 function preferredNodesByPath(nodes: readonly CodeGraphNode[]): ReadonlyMap<string, CodeGraphNode> {
@@ -484,7 +495,7 @@ function preferredNodesByPath(nodes: readonly CodeGraphNode[]): ReadonlyMap<stri
 }
 
 function pathNodeRank(kind: CodeGraphNode["kind"]): number {
-	if (kind === "File" || kind === "Doc" || kind === "GeneratedArtifact" || kind === "Config") return 100;
+	if (kind === "File" || kind === "Doc" || kind === "GeneratedArtifact" || isCiKind(kind)) return 100;
 	if (kind === "DirtyArtifact") return 80;
 	if (kind === "Symbol") return 10;
 	return 50;
@@ -638,9 +649,13 @@ function surfaceRecords(slice: GraphSlice | undefined): BriefSurfaces {
 		env: nodes.filter((node) => node.kind === "EnvVar").slice(0, 20).map(surfaceRecord("env var in selected context")),
 		db: nodes.filter((node) => node.kind.startsWith("Db") || node.kind === "Migration").slice(0, 20).map(surfaceRecord("database surface in selected context")),
 		iac: nodes.filter((node) => node.kind === "IaCModule" || node.kind === "IaCResource").slice(0, 20).map(surfaceRecord("IaC surface in selected context")),
-		ci: nodes.filter((node) => node.kind === "Config").slice(0, 20).map(surfaceRecord("configuration surface in selected context")),
+		ci: nodes.filter((node) => isCiKind(node.kind)).slice(0, 20).map(surfaceRecord("CI surface in selected context")),
 		docs: nodes.filter((node) => node.kind === "Doc").slice(0, 20).map(surfaceRecord("documentation surface in selected context")),
 	};
+}
+
+function isCiKind(kind: CodeGraphNode["kind"]): boolean {
+	return kind === "CiWorkflow" || kind === "CiJob" || kind === "CiRunStep";
 }
 
 function surfaceRecord(reason: string): (node: CodeGraphNode) => BriefSurfaceRecord {
@@ -776,7 +791,11 @@ function estimateTokens(value: string): number {
 
 function renderRankedPaths(paths: readonly BriefPathRecord[]): readonly string[] {
 	if (paths.length === 0) return ["- None"];
-	return paths.map((item) => `${item.rank}. \`${item.path}\` - ${item.reason}`);
+	return paths.map((item) => {
+		const tags = [item.surface, item.packageId].filter((value): value is string => value !== undefined);
+		const suffix = tags.length === 0 ? "" : ` (${tags.join(", ")})`;
+		return `${item.rank}. \`${item.path}\`${suffix} - ${item.reason}`;
+	});
 }
 
 function renderPackages(packages: readonly BriefPackageRecord[]): readonly string[] {

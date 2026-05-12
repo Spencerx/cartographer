@@ -21,7 +21,7 @@
     {
       "id": "codex-graph-mandated-builder",
       "title": "Graph-mandated Codex-style builder exploration",
-      "condition": "graph-mandated",
+      "condition": "cartographer-brief",
       "comparisonGroup": "builder-exploration",
       "trace": "codex-graph-mandated-builder.json",
       "expectedAdopted": true,
@@ -38,7 +38,7 @@
     {
       "id": "codex-graph-prompted-adoption",
       "title": "Graph-prompted Codex-style adoption implementation lookup",
-      "condition": "graph-prompted",
+      "condition": "cartographer-brief",
       "trace": "codex-graph-prompted-adoption.json",
       "expectedAdopted": true,
       "requireGraphFirst": true,
@@ -46,6 +46,38 @@
       "expectedPaths": ["src/code-graph/adoption.ts"],
       "expectedCommands": ["bun test src/code-graph"],
       "expectedExecutedCommands": ["bun test src/code-graph"]
+    },
+    {
+      "id": "codex-baseline-supabase-removal",
+      "title": "Baseline Codex-style Supabase removal survey without Cartographer audit context",
+      "condition": "baseline-direct",
+      "comparisonGroup": "supabase-removal",
+      "trace": "codex-baseline-supabase-removal.json",
+      "expectedAdopted": false,
+      "expectedText": ["CODEX_SUPABASE_BASELINE_OK"],
+      "expectedPaths": [
+        "apps/web/package.json",
+        "apps/web/src/auth/client.ts"
+      ],
+      "expectedCommands": ["bun run typecheck"],
+      "expectedExecutedCommands": ["bun run typecheck"]
+    },
+    {
+      "id": "codex-cartographer-brief-plus-audit-supabase-removal",
+      "title": "Cartographer brief plus audit ledger Supabase removal survey",
+      "condition": "cartographer-brief-plus-audit",
+      "comparisonGroup": "supabase-removal",
+      "trace": "codex-cartographer-brief-plus-audit-supabase-removal.json",
+      "expectedAdopted": true,
+      "requireGraphFirst": true,
+      "expectedText": ["CODEX_SUPABASE_AUDIT_OK"],
+      "expectedPaths": [
+        "apps/web/package.json",
+        "apps/web/src/auth/client.ts",
+        "supabase/migrations/0001_policy.sql"
+      ],
+      "expectedCommands": ["bun run typecheck"],
+      "expectedExecutedCommands": ["bun run typecheck"]
     }
   ]
 }

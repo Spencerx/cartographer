@@ -217,7 +217,14 @@ function preferredTargetNode(node: CodeGraphNode, current: CodeGraphNode | undef
 }
 
 function targetNodeRank(kind: CodeGraphNode["kind"]): number {
-	if (kind === "File" || kind === "Doc" || kind === "GeneratedArtifact" || kind === "Config") return 100;
+	if (
+		kind === "File" ||
+		kind === "Doc" ||
+		kind === "GeneratedArtifact" ||
+		kind === "CiWorkflow" ||
+		kind === "CiJob" ||
+		kind === "CiRunStep"
+	) return 100;
 	if (kind === "DirtyArtifact") return 80;
 	if (kind === "Symbol") return 10;
 	return 50;

@@ -383,7 +383,7 @@ function expectedCommandToolEvidence(command: ObservedToolCommand | undefined): 
 
 export function isCartographerPreflightCommand(command: string): boolean {
 	const normalized = normalizeCommand(command);
-	return isPreflightAlias(normalized) || isContextGraphCommand(normalized);
+	return isPreflightAlias(normalized) || isBriefGraphCommand(normalized) || isContextGraphCommand(normalized);
 }
 
 export function isSourceReadCommand(command: string): boolean {
@@ -619,6 +619,10 @@ function isPreflightAlias(command: string): boolean {
 	return preflightAliasPatterns.some((pattern) => pattern.test(command));
 }
 
+function isBriefGraphCommand(command: string): boolean {
+	return cartographerBriefPattern.test(command);
+}
+
 function isContextGraphCommand(command: string): boolean {
 	return cartographerContextPattern.test(command) && hasFlag(command, "json");
 }
@@ -642,4 +646,5 @@ const sourceReadCommandPatterns = [
 const pathLikePattern = /(?:^|\s)(~?\/[^\s"'|;]+|\.{1,2}\/[^\s"'|;]+|[A-Za-z0-9_.-]+\/[^\s"'|;]+)/g;
 const instructionPathPatterns = [/(^|\/)\.codex\/skills\//, /(^|\/)\.agents\/skills\//, /(^|\/)\.claude\/skills\//];
 const preflightAliasPatterns = [/\bcartographer:preflight\b/, /\bcartographer\s+preflight\b/];
+const cartographerBriefPattern = /\bcartographer(?::|\s+)brief\b/;
 const cartographerContextPattern = /\bcartographer(?::|\s+)context\b/;

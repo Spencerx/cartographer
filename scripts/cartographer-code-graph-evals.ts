@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import { readFileSync } from "node:fs";
-import { mkdir, readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import {
 	analyzeGraphCommandAdoption,
@@ -59,6 +59,9 @@ interface EvalOptions {
 	readonly outBase: string;
 	readonly maxFileBytes: number;
 	readonly traceSuite: string;
+	readonly live: boolean;
+	readonly codexPath: string;
+	readonly codexModel?: string | undefined;
 }
 
 interface TimedResult<T> {
@@ -109,6 +112,9 @@ async function main(): Promise<void> {
 	if (options.profile === "codex") {
 		suites.push(await codexTraceSuite(options));
 	}
+	if (options.profile === "codex-live") {
+		suites.push(await liveCodexSuite(options, runOutDir));
+	}
 
 	const finishedAtMs = Date.now();
 	const report: EvalReport = {
@@ -127,6 +133,7 @@ async function main(): Promise<void> {
 			".evals/research/cartographer-code-graph-trace-survey.md",
 			".evals/research/cartographer-axia-stress-run.md",
 			".evals/fixtures/codex-traces/cases.json",
+			"codex exec --json --ephemeral",
 		],
 		suites,
 		failures: suites.flatMap((suite) =>
@@ -140,6 +147,188 @@ async function main(): Promise<void> {
 	await Bun.write(reportPath, `${JSON.stringify(report, null, 2)}\n`);
 	console.log(`${report.status}: wrote ${reportPath}`);
 	if (report.status === "failed") process.exitCode = 1;
+}
+
+async function liveCodexSuite(options: EvalOptions, runOutDir: string): Promise<EvalSuite> {
+	return timedSuite("codex-live-adoption", "live Codex graph adoption run", async () => {
+		if (!options.live) {
+			return [
+				failed(
+					"live-flag-required",
+					"codex-live profile requires --live so provider-backed Codex runs never execute by accident",
+				),
+			];
+		}
+		const liveRun = await runLiveCodex(options, join(runOutDir, "codex-live.jsonl"));
+		const summary = analyzeGraphCommandAdoption(liveRun.events);
+		const graphFirst = checkGraphFirstAdoption(summary);
+		const expectations = checkTraceExpectations(liveRun.events, {
+			text: "CODEX_LIVE_CARTOGRAPHER_OK",
+			path: "src/code-graph/adoption.ts",
+			command: "bun test src/code-graph/__tests__/adoption.test.ts",
+			executedCommand: "bun test src/code-graph/__tests__/adoption.test.ts",
+		});
+		return [
+			check("codex-exit", () =>
+				liveRun.exitCode === 0
+					? passed("codex exec exited successfully", {
+							exitCode: liveRun.exitCode,
+							rawJsonlPath: liveRun.rawJsonlPath,
+							stderrLength: liveRun.stderr.length,
+						})
+					: failed("codex-exit", "codex exec failed", {
+							exitCode: liveRun.exitCode,
+							stderr: liveRun.stderr.slice(0, 2000),
+							rawJsonlPath: liveRun.rawJsonlPath,
+						}),
+			),
+			check("live-graph-adoption", () =>
+				summary.adopted
+					? passed("live Codex used Cartographer graph context", {
+							eventCount: summary.eventCount,
+							toolCommandCount: summary.toolCommandCount,
+							sourceReadBeforeGraphCount: summary.sourceReadBeforeGraphCount,
+							firstGraphCommand: summary.firstGraphCommand,
+							firstGraphCommandOffsetMs: summary.firstGraphCommandOffsetMs,
+							graphPreflightResultCount: summary.graphPreflightResultCount,
+							firstGraphPreflightDurationMs: summary.firstGraphPreflightDurationMs,
+							firstGraphPreflightTimings: summary.firstGraphPreflightTimings,
+						})
+					: failed("live-graph-adoption", "live Codex did not use Cartographer graph context", {
+							toolCommandCount: summary.toolCommandCount,
+							sourceReadCommandsBeforeGraph: summary.sourceReadCommandsBeforeGraph,
+						}),
+			),
+			check("live-graph-first", () =>
+				graphFirst.passed
+					? passed("live Codex used graph context before source reads")
+					: failed("live-graph-first", "live Codex graph-first gate failed", {
+							failures: graphFirst.failures,
+							sourceReadCommandsBeforeGraph: summary.sourceReadCommandsBeforeGraph,
+						}),
+			),
+			check("live-expectations", () =>
+				expectations.passed
+					? passed("live Codex final answer and executed validation expectations passed", {
+							...expectations.metrics,
+						})
+					: failed("live-expectations", "live Codex trace expectation failed", {
+							failures: expectations.failures,
+							metrics: expectations.metrics,
+						}),
+			),
+		];
+	});
+}
+
+async function runLiveCodex(
+	options: EvalOptions,
+	rawJsonlPath: string,
+): Promise<{
+	readonly exitCode: number;
+	readonly stdout: string;
+	readonly stderr: string;
+	readonly rawJsonlPath: string;
+	readonly events: readonly RuntimeEvent[];
+}> {
+	const prompt = [
+		"Do not edit files.",
+		"First run exactly this command:",
+		"bun run cartographer:preflight -- --root /Users/saint/dev/agent-runtime-kernel --live --path src/code-graph/adoption.ts --out /tmp/cartographer-live-codex-adoption",
+		"Then run exactly this validation command:",
+		"bun test src/code-graph/__tests__/adoption.test.ts",
+		"Then reply with exactly one compact line containing CODEX_LIVE_CARTOGRAPHER_OK, src/code-graph/adoption.ts, and bun test src/code-graph/__tests__/adoption.test.ts.",
+	].join(" ");
+	const args = [
+		"exec",
+		"--json",
+		"--ephemeral",
+		"-s",
+		"read-only",
+		"-c",
+		'approval_policy="never"',
+		"-C",
+		process.cwd(),
+		...(options.codexModel === undefined ? [] : ["-m", options.codexModel]),
+		prompt,
+	];
+	const proc = Bun.spawn([options.codexPath, ...args], { stdout: "pipe", stderr: "pipe" });
+	const [stdout, stderr, exitCode] = await Promise.all([
+		new Response(proc.stdout).text(),
+		new Response(proc.stderr).text(),
+		proc.exited,
+	]);
+	await writeFile(rawJsonlPath, stdout);
+	return {
+		exitCode,
+		stdout,
+		stderr,
+		rawJsonlPath,
+		events: codexExecJsonlToRuntimeEvents(stdout),
+	};
+}
+
+function codexExecJsonlToRuntimeEvents(jsonl: string): readonly RuntimeEvent[] {
+	return jsonl
+		.split("\n")
+		.map((line) => line.trim())
+		.filter((line) => line.length > 0)
+		.flatMap((line, index) => codexExecEventToRuntimeEvents(JSON.parse(line) as unknown, index));
+}
+
+function codexExecEventToRuntimeEvents(value: unknown, index: number): readonly RuntimeEvent[] {
+	if (!isRecord(value)) return [];
+	const type = typeof value.type === "string" ? value.type : "";
+	const item = isRecord(value.item) ? value.item : undefined;
+	const timestamp = new Date(Date.now() + index).toISOString();
+	if ((type === "item.started" || type === "item.completed") && item?.type === "command_execution") {
+		const command = typeof item.command === "string" ? item.command : undefined;
+		if (command === undefined) return [];
+		const base: RuntimeEvent = {
+			type: "tool_use",
+			turnId: "codex-live",
+			timestamp,
+			data: { status: type === "item.started" ? "started" : "completed", item: { type: "commandExecution", command } },
+		};
+		const output = typeof item.aggregated_output === "string" ? item.aggregated_output : "";
+		const preflight = preflightResultFromCommandOutput(command, output, timestamp);
+		return preflight === undefined ? [base] : [base, preflight];
+	}
+	if (type === "item.completed" && item?.type === "agent_message" && typeof item.text === "string") {
+		return [{ type: "result", turnId: "codex-live", timestamp, data: { text: item.text } }];
+	}
+	return [];
+}
+
+function preflightResultFromCommandOutput(
+	command: string,
+	output: string,
+	timestamp: string,
+): RuntimeEvent | undefined {
+	if (!command.includes("cartographer:preflight") && !command.includes("cartographer preflight")) return undefined;
+	const parsed = parseJsonObject(output);
+	if (!isRecord(parsed.preflight)) return undefined;
+	const preflight = parsed.preflight;
+	return {
+		type: "tool_result",
+		turnId: "codex-live",
+		timestamp,
+		data: {
+			name: "cartographer.preflight",
+			command,
+			durationMs: typeof preflight.durationMs === "number" ? preflight.durationMs : undefined,
+			timings: isRecord(preflight.timings) ? preflight.timings : undefined,
+		},
+	};
+}
+
+function parseJsonObject(value: string): Record<string, unknown> {
+	try {
+		const parsed = JSON.parse(value) as unknown;
+		return isRecord(parsed) ? parsed : {};
+	} catch {
+		return {};
+	}
 }
 
 async function codexTraceSuite(options: EvalOptions): Promise<EvalSuite> {
@@ -469,6 +658,9 @@ function evalOptions(argv: readonly string[]): EvalOptions {
 		outBase: resolve(flags.get("out-base") ?? "/tmp/cartographer-code-graph-evals"),
 		maxFileBytes: Number.parseInt(flags.get("max-file-bytes") ?? "500000", 10),
 		traceSuite: resolve(flags.get("trace-suite") ?? ".evals/fixtures/codex-traces/cases.json"),
+		live: flags.get("live") === "true",
+		codexPath: flags.get("codex-path") ?? "codex",
+		codexModel: flags.get("codex-model"),
 	};
 }
 

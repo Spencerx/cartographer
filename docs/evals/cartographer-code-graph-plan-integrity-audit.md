@@ -42,6 +42,7 @@ Current package scripts include Cartographer graph commands, normal checks, and 
 - `eval:cartographer:smoke`
 - `eval:cartographer:baseline`
 - `eval:cartographer:codex`
+- `eval:cartographer:codex:live`
 - `typecheck`
 - `test`
 
@@ -50,9 +51,12 @@ Current report state:
 - `docs/reports/cartographer-code-graph-smoke-2026-05-12T00-18-52-454Z.json` exists
 - `docs/reports/cartographer-code-graph-codex-2026-05-12T00-22-58-653Z.json` exists and records the first failed codex runner attempt
 - `docs/reports/cartographer-code-graph-codex-2026-05-12T00-23-23-289Z.json` exists
+- `docs/reports/cartographer-code-graph-codex-live-2026-05-12T00-27-41-445Z.json` exists and records the first passed live codex run before stable check IDs were added
+- `docs/reports/cartographer-code-graph-codex-live-2026-05-12T00-28-27-531Z.json` exists
 - `scripts/cartographer-code-graph-evals.ts` exists
 - the latest smoke report passed with 3 suites and 0 failures
 - the latest recorded Codex trace report passed with 4 suites and 0 failures
+- the latest live Codex report passed with 4 suites and 0 failures
 
 ## Read-Only ARK Target Evidence
 
@@ -155,7 +159,6 @@ The remaining failures are specific to live agent and judge layers. They become 
 
 ## Hard Findings
 
-- HARD GAP: There is no live Codex execution profile in this repo yet; `eval:cartographer:codex` currently scores recorded trace fixtures.
 - HARD GAP: Baseline profile semantics are still shallow; `eval:cartographer:baseline` currently runs the deterministic contract profile rather than a richer fixture baseline comparison.
 - HARD GAP: Semantic-overlay usefulness remains unsupported until gold labels, judge prompts, and agreement metrics exist.
 
@@ -169,6 +172,6 @@ The remaining failures are specific to live agent and judge layers. They become 
 
 ## Current Gate
 
-The deterministic smoke gate has moved from planning to implementation.
+The deterministic smoke, recorded Codex trace, and explicit live Codex gates have moved from planning to implementation.
 
-The next gate is live-agent evidence: do not claim graph-first Codex quality lift until a repeatable opt-in Codex profile exists and produces comparable trace reports.
+The next gate is claim strength: do not claim graph-first Codex quality lift until repeated comparable live reports exist across task distributions.

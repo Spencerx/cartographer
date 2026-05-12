@@ -1,0 +1,262 @@
+{
+  "runId": "cartographer-code-graph-codex-live-2026-05-12T00-27-41-445Z",
+  "profile": "codex-live",
+  "status": "passed",
+  "startedAt": "2026-05-12T00:27:41.445Z",
+  "finishedAt": "2026-05-12T00:27:51.262Z",
+  "durationMs": 9817,
+  "options": {
+    "profile": "codex-live",
+    "targetRoot": "/Users/saint/dev/agent-runtime-kernel",
+    "reportDir": "/Users/saint/Dev/cartographer-plugin/docs/reports",
+    "outBase": "/tmp/cartographer-code-graph-evals",
+    "maxFileBytes": 500000,
+    "traceSuite": "/Users/saint/Dev/cartographer-plugin/.evals/fixtures/codex-traces/cases.json",
+    "live": true,
+    "codexPath": "codex"
+  },
+  "environment": {
+    "cwd": "/Users/saint/Dev/cartographer-plugin",
+    "platform": "darwin",
+    "arch": "arm64",
+    "bunVersion": "1.3.8",
+    "git": {
+      "commit": "b2db6cc9f8900b79befb95b272b394337a393eed",
+      "dirty": true
+    }
+  },
+  "researchGrounding": [
+    "docs/evals/cartographer-code-graph-eval-suites.md",
+    "docs/evals/cartographer-code-graph-completion-audit.md",
+    "docs/evals/cartographer-code-graph-plan-integrity-audit.md",
+    ".evals/research/cartographer-code-graph-trace-survey.md",
+    ".evals/research/cartographer-axia-stress-run.md",
+    ".evals/fixtures/codex-traces/cases.json",
+    "codex exec --json --ephemeral"
+  ],
+  "suites": [
+    {
+      "id": "graph-contract:self",
+      "title": "self graph contract",
+      "status": "passed",
+      "startedAt": "2026-05-12T00:27:41.446Z",
+      "finishedAt": "2026-05-12T00:27:41.549Z",
+      "durationMs": 103,
+      "checks": [
+        {
+          "id": "schema-valid",
+          "status": "passed",
+          "summary": "graph snapshot validates",
+          "metrics": {
+            "durationMs": 89,
+            "files": 70,
+            "nodes": 807,
+            "edges": 1136,
+            "findings": 0,
+            "gitDirty": true
+          }
+        },
+        {
+          "id": "unique-node-ids",
+          "status": "passed",
+          "summary": "no duplicate node ids",
+          "metrics": {
+            "count": 807
+          }
+        },
+        {
+          "id": "unique-edge-ids",
+          "status": "passed",
+          "summary": "no duplicate edge ids",
+          "metrics": {
+            "count": 1136
+          }
+        },
+        {
+          "id": "edge-endpoints-exist",
+          "status": "passed",
+          "summary": "all edge endpoints exist",
+          "metrics": {
+            "edgeCount": 1136
+          }
+        },
+        {
+          "id": "no-default-ignored-paths",
+          "status": "passed",
+          "summary": "ignored output paths are excluded"
+        },
+        {
+          "id": "no-env-secret-values",
+          "status": "passed",
+          "summary": "env var nodes do not expose raw values"
+        }
+      ]
+    },
+    {
+      "id": "graph-contract:ark",
+      "title": "ark graph contract",
+      "status": "passed",
+      "startedAt": "2026-05-12T00:27:41.549Z",
+      "finishedAt": "2026-05-12T00:27:41.907Z",
+      "durationMs": 358,
+      "checks": [
+        {
+          "id": "schema-valid",
+          "status": "passed",
+          "summary": "graph snapshot validates",
+          "metrics": {
+            "durationMs": 318,
+            "files": 669,
+            "nodes": 4620,
+            "edges": 10049,
+            "findings": 0,
+            "gitDirty": true
+          }
+        },
+        {
+          "id": "unique-node-ids",
+          "status": "passed",
+          "summary": "no duplicate node ids",
+          "metrics": {
+            "count": 4620
+          }
+        },
+        {
+          "id": "unique-edge-ids",
+          "status": "passed",
+          "summary": "no duplicate edge ids",
+          "metrics": {
+            "count": 10049
+          }
+        },
+        {
+          "id": "edge-endpoints-exist",
+          "status": "passed",
+          "summary": "all edge endpoints exist",
+          "metrics": {
+            "edgeCount": 10049
+          }
+        },
+        {
+          "id": "no-default-ignored-paths",
+          "status": "passed",
+          "summary": "ignored output paths are excluded"
+        },
+        {
+          "id": "no-env-secret-values",
+          "status": "passed",
+          "summary": "env var nodes do not expose raw values"
+        }
+      ]
+    },
+    {
+      "id": "ark-preflight",
+      "title": "ARK read-only preflight navigation",
+      "status": "passed",
+      "startedAt": "2026-05-12T00:27:41.907Z",
+      "finishedAt": "2026-05-12T00:27:42.224Z",
+      "durationMs": 317,
+      "checks": [
+        {
+          "id": "target-path-present",
+          "status": "passed",
+          "summary": "target path appears in primary paths"
+        },
+        {
+          "id": "focused-tests-present",
+          "status": "passed",
+          "summary": "focused test paths are present"
+        },
+        {
+          "id": "focused-commands-first",
+          "status": "passed",
+          "summary": "focused validation commands lead compact context"
+        },
+        {
+          "id": "compact-command-limit-recorded",
+          "status": "passed",
+          "summary": "compact validation command limit is recorded",
+          "metrics": {
+            "limit": 20,
+            "omitted": 103,
+            "emitted": 11
+          }
+        },
+        {
+          "id": "preflight-timings-recorded",
+          "status": "passed",
+          "summary": "preflight timing phases recorded",
+          "metrics": {
+            "durationMs": 316,
+            "loadGraphMs": 304,
+            "buildContextMs": 11,
+            "renderPromptMs": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "codex-live-adoption",
+      "title": "live Codex graph adoption run",
+      "status": "passed",
+      "startedAt": "2026-05-12T00:27:42.224Z",
+      "finishedAt": "2026-05-12T00:27:51.262Z",
+      "durationMs": 9038,
+      "checks": [
+        {
+          "id": "",
+          "status": "passed",
+          "summary": "codex exec exited successfully",
+          "metrics": {
+            "exitCode": 0,
+            "rawJsonlPath": "/tmp/cartographer-code-graph-evals/cartographer-code-graph-codex-live-2026-05-12T00-27-41-445Z/codex-live.jsonl",
+            "stderrLength": 39
+          }
+        },
+        {
+          "id": "",
+          "status": "passed",
+          "summary": "live Codex used Cartographer graph context",
+          "metrics": {
+            "eventCount": 6,
+            "toolCommandCount": 4,
+            "sourceReadBeforeGraphCount": 0,
+            "firstGraphCommand": "/bin/zsh -lc 'bun run cartographer:preflight -- --root /Users/saint/dev/agent-runtime-kernel --live --path src/code-graph/adoption.ts --out /tmp/cartographer-live-codex-adoption'",
+            "firstGraphCommandOffsetMs": 0,
+            "graphPreflightResultCount": 1,
+            "firstGraphPreflightDurationMs": 340,
+            "firstGraphPreflightTimings": {
+              "loadGraphMs": 328,
+              "buildContextMs": 11,
+              "renderPromptMs": 1
+            }
+          }
+        },
+        {
+          "id": "",
+          "status": "passed",
+          "summary": "live Codex used graph context before source reads"
+        },
+        {
+          "id": "",
+          "status": "passed",
+          "summary": "live Codex final answer and executed validation expectations passed",
+          "metrics": {
+            "expectedTextCount": 1,
+            "expectedPathCount": 1,
+            "expectedCommandCount": 1,
+            "expectedExecutedCommandCount": 1,
+            "finalTextHitCount": 1,
+            "finalPathHitCount": 1,
+            "toolPathHitCount": 1,
+            "sourceReadPathHitCount": 0,
+            "finalCommandHitCount": 1,
+            "toolCommandHitCount": 1,
+            "executedCommandHitCount": 1
+          }
+        }
+      ]
+    }
+  ],
+  "failures": []
+}

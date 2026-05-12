@@ -20,6 +20,7 @@ afterEach(async () => {
 describe("buildCodeGraph", () => {
 	test("indexes package scripts, imports, env vars, SQL, and IaC facts", async () => {
 		await mkdir(join(tempDir, "src/generated"), { recursive: true });
+		await mkdir(join(tempDir, "docs"), { recursive: true });
 		await writeFile(
 			join(tempDir, "package.json"),
 			JSON.stringify({
@@ -53,6 +54,10 @@ describe("buildCodeGraph", () => {
 			"import { helper } from './util';\ntest('helper', () => helper());\n",
 		);
 		await writeFile(join(tempDir, "src/generated/client.generated.ts"), "export const generated = true;\n");
+		await writeFile(
+			join(tempDir, "docs/guide.md"),
+			"Read [the entrypoint](../src/index.ts) before editing `supabase/migrations/0001_init.sql`.\n",
+		);
 		await writeFile(
 			join(tempDir, "supabase/migrations/0001_init.sql"),
 			"create table public.organizations (id uuid primary key);\ncreate table public.accounts (id uuid primary key, organization_id uuid references public.organizations(id));\ncreate policy account_read on public.accounts for select using (true);\ncreate function public.hello_world() returns text language sql as $$ select 'hello' $$;\n",
@@ -89,9 +94,42 @@ describe("buildCodeGraph", () => {
 		).toBe(true);
 		expect(graph.nodes.some((node) => node.id === "env:DATABASE_URL")).toBe(true);
 		expect(graph.nodes.some((node) => node.id === "env:DATABASE_URL_READONLY")).toBe(true);
+		expect(graph.nodes.some((node) => node.id === "migration:supabase/migrations/0001_init.sql")).toBe(true);
 		expect(graph.nodes.some((node) => node.id === "dbtable:public.accounts")).toBe(true);
 		expect(graph.nodes.some((node) => node.id === "dbtable:public.organizations")).toBe(true);
 		expect(graph.nodes.some((node) => node.id === "dbfunction:public.hello_world")).toBe(true);
+		expect(
+			graph.edges.some(
+				(edge) =>
+					edge.kind === "DOCUMENTS" &&
+					edge.from === "file:docs/guide.md" &&
+					edge.to === "file:src/index.ts",
+			),
+		).toBe(true);
+		expect(
+			graph.edges.some(
+				(edge) =>
+					edge.kind === "DOCUMENTS" &&
+					edge.from === "file:docs/guide.md" &&
+					edge.to === "file:supabase/migrations/0001_init.sql",
+			),
+		).toBe(true);
+		expect(
+			graph.edges.some(
+				(edge) =>
+					edge.kind === "CONFIGURES" &&
+					edge.from === "file:supabase/migrations/0001_init.sql" &&
+					edge.to === "migration:supabase/migrations/0001_init.sql",
+			),
+		).toBe(true);
+		expect(
+			graph.edges.some(
+				(edge) =>
+					edge.kind === "MIGRATION_CREATES" &&
+					edge.from === "migration:supabase/migrations/0001_init.sql" &&
+					edge.to === "dbtable:public.accounts",
+			),
+		).toBe(true);
 		expect(
 			graph.edges.some(
 				(edge) =>
@@ -132,7 +170,7 @@ describe("buildCodeGraph", () => {
 		expect(shallowReferencedTableImpact.nodes.some((node) => node.id === "dbtable:public.accounts")).toBe(true);
 		expect(shallowReferencedTableImpact.nodes.some((node) => node.id === "file:src/index.ts")).toBe(false);
 		expect(graph.nodes.some((node) => node.id === "iacresource:aws_s3_bucket:assets")).toBe(true);
-		expect(graph.manifest.totals.files).toBe(7);
+		expect(graph.manifest.totals.files).toBe(8);
 	});
 
 	test("does not treat built-in from calls as Supabase table usage", async () => {

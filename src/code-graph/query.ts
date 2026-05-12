@@ -879,6 +879,7 @@ const nodeIdSelectorPrefixes = [
 	"file:",
 	"iacmodule:",
 	"iacresource:",
+	"migration:",
 	"repo:",
 	"script:",
 	"symbol:",
@@ -887,6 +888,7 @@ const nodeIdSelectorPrefixes = [
 const impactEdgeKinds = new Set<CodeGraphEdge["kind"]>([
 	"IMPORTS",
 	"TYPE_IMPORTS",
+	"DOCUMENTS",
 	"REFERENCES",
 	"CALLS",
 	"GENERATED_BY",
@@ -896,6 +898,9 @@ const impactEdgeKinds = new Set<CodeGraphEdge["kind"]>([
 	"SERVICE_CALLS_RPC",
 	"TABLE_REFERENCES_TABLE",
 	"DEPENDS_ON",
+	"MIGRATION_CREATES",
+	"MIGRATION_ALTERS",
+	"MIGRATION_DROPS",
 	"RESOURCE_DEPENDS_ON",
 	"AFFECTS",
 ]);

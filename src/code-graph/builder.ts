@@ -2,6 +2,7 @@ import { basename } from "node:path";
 import { DEFAULT_MAX_FILE_BYTES } from "./defaults.ts";
 import {
 	extractDataAccessFacts,
+	extractDocReferenceFacts,
 	extractEnvVars,
 	extractIacDependencyFacts,
 	extractIacFacts,
@@ -160,6 +161,7 @@ async function addFileFacts(graph: MutableGraph, file: InventoryFile, allPaths: 
 	const text = await readText(file);
 	if (text === undefined) return;
 	addImports(graph, file, text, allPaths);
+	addDocReferenceFacts(graph, file, text, allPaths);
 	addSymbols(graph, file, text);
 	addEnvVars(graph, file, text);
 	addSqlFacts(graph, file, text);
@@ -245,7 +247,26 @@ function addEnvVars(graph: MutableGraph, file: InventoryFile, text: string): voi
 	}
 }
 
+function addDocReferenceFacts(
+	graph: MutableGraph,
+	file: InventoryFile,
+	text: string,
+	allPaths: ReadonlySet<string>,
+): void {
+	for (const fact of extractDocReferenceFacts(file, text, allPaths)) {
+		addProvenanceEdge(
+			graph,
+			"DOCUMENTS",
+			fileNodeId(file.path),
+			fileNodeId(fact.targetPath),
+			fact.label,
+			provenance("doc-parser", [{ path: file.path, startLine: fact.line, endLine: fact.line }]),
+		);
+	}
+}
+
 function addSqlFacts(graph: MutableGraph, file: InventoryFile, text: string): void {
+	addMigrationNode(graph, file);
 	for (const fact of extractSqlFacts(file, text)) {
 		const kind = sqlNodeKinds[fact.kind];
 		const nodeId = `${kind.toLowerCase()}:${fact.name}`;
@@ -257,8 +278,48 @@ function addSqlFacts(graph: MutableGraph, file: InventoryFile, text: string): vo
 			metadata: { action: fact.action },
 			provenance: provenance("sql-parser", [{ path: file.path, startLine: fact.line, endLine: fact.line }]),
 		});
-		addEdge(graph, sqlEdgeKinds[fact.action], fileNodeId(file.path), nodeId, fact.action);
+		addProvenanceEdge(
+			graph,
+			sqlEdgeKinds[fact.action],
+			sqlFactSourceNodeId(file),
+			nodeId,
+			fact.action,
+			provenance("sql-parser", [{ path: file.path, startLine: fact.line, endLine: fact.line }]),
+		);
 	}
+}
+
+function addMigrationNode(graph: MutableGraph, file: InventoryFile): void {
+	if (!isSqlMigrationPath(file.path)) return;
+	const nodeId = migrationNodeId(file.path);
+	addNode(graph, {
+		id: nodeId,
+		kind: "Migration",
+		label: basename(file.path),
+		path: file.path,
+		metadata: { migrationKind: "sql" },
+		provenance: provenance("sql-parser", [{ path: file.path, hash: file.hash }], freshnessFor(file)),
+	});
+	addProvenanceEdge(
+		graph,
+		"CONFIGURES",
+		fileNodeId(file.path),
+		nodeId,
+		"sql migration",
+		provenance("sql-parser", [{ path: file.path, hash: file.hash }], freshnessFor(file)),
+	);
+}
+
+function sqlFactSourceNodeId(file: InventoryFile): string {
+	return isSqlMigrationPath(file.path) ? migrationNodeId(file.path) : fileNodeId(file.path);
+}
+
+function migrationNodeId(path: string): string {
+	return `migration:${path}`;
+}
+
+function isSqlMigrationPath(path: string): boolean {
+	return path.endsWith(".sql") && /(^|\/)(migrations?|supabase\/migrations)\//i.test(path);
 }
 
 function addIacFacts(graph: MutableGraph, file: InventoryFile, text: string): void {

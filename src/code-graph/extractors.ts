@@ -29,6 +29,12 @@ export interface SqlFact {
 	readonly line: number;
 }
 
+export interface DocReferenceFact {
+	readonly targetPath: string;
+	readonly label: string;
+	readonly line: number;
+}
+
 export interface SqlReferenceFact {
 	readonly fromTable: string;
 	readonly toTable: string;
@@ -145,6 +151,21 @@ export function extractSqlReferenceFacts(file: InventoryFile, text: string): rea
 	return uniqueBy([...extractCreateTableReferences(text), ...extractAlterTableReferences(text)], sqlReferenceKey);
 }
 
+export function extractDocReferenceFacts(
+	file: InventoryFile,
+	text: string,
+	allPaths: ReadonlySet<string>,
+): readonly DocReferenceFact[] {
+	if (!file.path.endsWith(".md")) return [];
+	const linkFacts = [...text.matchAll(/\[[^\]]+\]\(([^)#?]+)(?:[#?][^)]+)?\)/g)].flatMap((match) =>
+		docReferenceFact(file.path, text, match, match[1], allPaths),
+	);
+	const codeFacts = [...text.matchAll(/`((?:src|apps|packages|infra|supabase|\.github)\/[^`\s]+)`/g)].flatMap((match) =>
+		docReferenceFact(file.path, text, match, match[1], allPaths),
+	);
+	return uniqueBy([...linkFacts, ...codeFacts], (fact) => `${fact.targetPath}:${fact.line}`);
+}
+
 export function extractIacFacts(file: InventoryFile, text: string): readonly IacFact[] {
 	if (!file.path.endsWith(".tf")) return [];
 	return [...extractTerraformResources(text), ...extractTerraformModules(text)];
@@ -227,6 +248,36 @@ function extractEcmaImports(path: string, text: string, allPaths: ReadonlySet<st
 		}
 	}
 	return dedupeImports(facts);
+}
+
+function docReferenceFact(
+	path: string,
+	text: string,
+	match: RegExpMatchArray,
+	rawTarget: string | undefined,
+	allPaths: ReadonlySet<string>,
+): readonly DocReferenceFact[] {
+	const targetPath = docReferenceTargetPath(path, rawTarget, allPaths);
+	if (targetPath === undefined) return [];
+	return [
+		{
+			targetPath,
+			label: rawTarget ?? targetPath,
+			line: lineForIndex(text, match.index ?? 0),
+		},
+	];
+}
+
+function docReferenceTargetPath(
+	path: string,
+	rawTarget: string | undefined,
+	allPaths: ReadonlySet<string>,
+): string | undefined {
+	if (rawTarget === undefined) return undefined;
+	if (/^[a-z][a-z0-9+.-]*:/i.test(rawTarget)) return undefined;
+	const normalized = normalizePath(normalize(rawTarget.startsWith("/") ? rawTarget.slice(1) : join(dirname(path), rawTarget)));
+	const rootRelative = normalizePath(rawTarget.replace(/^\.\//, "").replace(/^\//, ""));
+	return [normalized, rootRelative].find((candidate) => allPaths.has(candidate));
 }
 
 function extractPythonImports(text: string): readonly ImportFact[] {

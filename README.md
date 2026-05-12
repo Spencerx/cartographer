@@ -24,6 +24,14 @@ bun run cartographer:view -- --out docs/codegraph
 bun run cartographer:preflight -- --root . --path src/index.ts --out docs/codegraph
 ```
 
+Run the deterministic Cartographer eval smoke profile:
+
+```bash
+bun run eval:cartographer:smoke
+```
+
+The smoke profile indexes this repo and uses `/Users/saint/dev/agent-runtime-kernel` as a read-only external target. It writes graph artifacts under `/tmp/cartographer-code-graph-evals` and append-only JSON reports under `docs/reports`.
+
 Core commands:
 
 - `index` - build `schema.json`, `manifest.json`, `graph.json`, and `CODEBASE_MAP.md`.

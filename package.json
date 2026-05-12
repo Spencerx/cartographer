@@ -31,6 +31,9 @@
 		"cartographer:adoption": "bun run src/cli/index.ts adoption",
 		"cartographer:annotate": "bun run src/cli/index.ts annotate",
 		"cartographer:annotations": "bun run src/cli/index.ts annotations",
+		"eval:cartographer": "bun run scripts/cartographer-code-graph-evals.ts",
+		"eval:cartographer:smoke": "bun run scripts/cartographer-code-graph-evals.ts -- --profile smoke",
+		"eval:cartographer:baseline": "bun run scripts/cartographer-code-graph-evals.ts -- --profile baseline",
 		"typecheck": "tsc --noEmit",
 		"test": "bun test src/code-graph"
 	},

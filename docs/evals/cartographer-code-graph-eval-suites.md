@@ -1,6 +1,6 @@
 # Cartographer Code Graph Eval Suites
 
-Status: plan pending implementation approval
+Status: deterministic smoke implemented; baseline and live Codex profiles still planned
 Owner: Cartographer
 Last updated: 2026-05-12
 
@@ -357,6 +357,28 @@ Judge requirements:
 
 ## Profiles
 
+## Current Runner State
+
+Implemented commands:
+
+```bash
+bun run eval:cartographer
+bun run eval:cartographer:smoke
+bun run eval:cartographer:baseline
+```
+
+Current generated report:
+
+- `docs/reports/cartographer-code-graph-smoke-2026-05-12T00-18-52-454Z.json`
+- status: `passed`
+- duration: 844ms
+- suites: `graph-contract:self`, `graph-contract:ark`, `ark-preflight`
+- failures: 0
+
+The current runner is deterministic and does not call live Codex or a judge model. It writes graph artifacts under `/tmp/cartographer-code-graph-evals` and treats ARK as a read-only target.
+
+## Runner Profiles
+
 ### Smoke
 
 Target runtime: under 10 minutes without live agents.
@@ -369,7 +391,7 @@ Includes:
 - no live model calls by default
 - optional local command-worker harness trace
 
-Expected command after approval:
+Command:
 
 ```bash
 bun run eval:cartographer:smoke
@@ -388,7 +410,7 @@ Includes:
 - report comparison against previous baseline when available
 - belief-durability follow-up probes for a subset of navigation tasks
 
-Expected command after approval:
+Command:
 
 ```bash
 bun run eval:cartographer:baseline
@@ -404,7 +426,7 @@ Includes:
 - full worker or Codex adapter traces
 - no claims about model quality unless credentials, model, host, and prompt version are recorded
 
-Expected command after approval:
+Expected future command after live profile implementation:
 
 ```bash
 bun run eval:cartographer:codex
@@ -473,12 +495,10 @@ Every agent-harness report must also include:
 
 ## Implementation Gate
 
-This document is the plan. It does not add a runner, judge prompt, package scripts, or checked-in reports.
+This document is now both the plan and the contract for the implemented deterministic smoke runner. It still does not add a judge prompt, live Codex runner, or calibration labels.
 
-Approval needed before scaffolding:
+Approval or a separate implementation decision is still needed before scaffolding:
 
-- `scripts/cartographer-code-graph-evals.ts`
 - fixture repo snapshots
-- `eval:cartographer:*` package scripts
 - judge prompt and calibration records
-- generated JSON reports under `docs/reports`
+- live-agent JSON reports under `docs/reports`

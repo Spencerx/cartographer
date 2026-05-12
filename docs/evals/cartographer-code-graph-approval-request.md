@@ -1,9 +1,9 @@
 # Cartographer Code Graph Eval Approval Request
 
-Status: awaiting explicit approval
+Status: superseded by deterministic smoke runner implementation
 Date: 2026-05-12
 
-This is the approval request for the next `$evals` step. It is not approval by itself and it does not scaffold the runner.
+This approval request is preserved as planning history. The deterministic smoke runner it requested now exists in `scripts/cartographer-code-graph-evals.ts`, with package scripts in `package.json` and a passing report under `docs/reports`.
 
 ## Decision Summary
 
@@ -84,4 +84,4 @@ ship it
 yes scaffold it
 ```
 
-Without explicit approval, the correct next state is still plan and audit only.
+Current next state: extend from deterministic smoke into structured baseline fixtures and opt-in live Codex/adoption profiles. Do not use this historical approval request as evidence for live-agent quality claims.

@@ -1,6 +1,6 @@
 # Cartographer Code Graph Completion Audit
 
-Status: incomplete - runner implementation still approval-gated
+Status: partial - deterministic smoke runner implemented, live agent eval still missing
 Last updated: 2026-05-12
 
 ## Objective
@@ -29,7 +29,7 @@ The objective is complete only when Cartographer itself has:
 | Measure graph speed | ARK index: 0.41s wall time, 227,573,760 bytes max RSS. ARK live preflight: 368ms total, 353ms graph load, 13ms context build, 2ms prompt render. | Partial - manual evidence only |
 | Measure codebase understanding | ARK preflight for `src/code-graph/commands.ts` surfaced 17 primary paths, 2 focused test paths, 0 findings, and a compact 11-command validation list led by `builder.test.ts`, `commands.test.ts`, and module-level `bun test ./src/code-graph`. The compact payload also records `limits.validationCommands: 20` and `omissions.validationCommands: 103` so evals know broader command data was intentionally withheld. | Partial - one manual target only |
 | Use coding-agent harnesses such as Codex | Existing docs describe adoption and trace checks, and `cartographer adoption` can score runtime traces. There is no standalone repeatable Codex eval profile in this repo yet. | Partial |
-| Produce runnable eval reports | No `scripts/cartographer-code-graph-evals.ts`, no `eval:cartographer:*` scripts, and no `docs/reports/cartographer-code-graph-*.json` reports exist. | Missing |
+| Produce runnable eval reports | `scripts/cartographer-code-graph-evals.ts` exists, `package.json` exposes `eval:cartographer`, `eval:cartographer:smoke`, and `eval:cartographer:baseline`, and `docs/reports/cartographer-code-graph-smoke-2026-05-12T00-18-52-454Z.json` records a passing smoke run. | Done for deterministic smoke |
 | Keep deterministic graph separate from semantic overlay | CLI supports deterministic graph artifacts plus candidate/reviewed overlay annotations. PRD and feature docs state that overlays cannot rescue missing graph facts. | Done |
 | Verify current implementation | `bun run typecheck`, `bun test src/code-graph --timeout 120000`, and standalone self-index passed after the repo split. | Done |
 
@@ -126,32 +126,46 @@ Latest verified commands in the standalone Cartographer repo:
 bun run typecheck
 bun test src/code-graph --timeout 120000
 bun run cartographer:index -- --root . --out /tmp/cartographer-plugin-codegraph --max-file-bytes 500000
+bun run eval:cartographer:smoke
 ```
 
 Results:
 
 - TypeScript typecheck passed.
-- Graph tests passed: 63 pass, 0 fail, 1,403 assertions.
-- Self-index passed: 61 files, 799 nodes, 1,121 edges, 0 findings.
+- Graph tests passed: 63 pass, 0 fail, 1,418 assertions.
+- Self-index passed: 64 files, 791 nodes, 1,118 edges, 0 findings.
+- Smoke eval passed and wrote `docs/reports/cartographer-code-graph-smoke-2026-05-12T00-18-52-454Z.json`.
+
+## Current Smoke Eval Evidence
+
+Report:
+
+- path: `docs/reports/cartographer-code-graph-smoke-2026-05-12T00-18-52-454Z.json`
+- status: `passed`
+- duration: 844ms
+- failures: 0
+
+Suites:
+
+- `graph-contract:self`: 63 files, 789 nodes, 1,116 edges, 0 findings, no duplicate IDs, no dangling edges, ignored paths excluded, no raw env values.
+- `graph-contract:ark`: 669 files, 4,620 nodes, 10,049 edges, 0 findings, no duplicate IDs, no dangling edges, ignored paths excluded, no raw env values.
+- `ark-preflight`: target path present, focused tests present, focused validation commands first, compact validation command limit recorded as 20 with 103 omitted commands, timing phases recorded.
+
+The ARK target run remained read-only. Graph artifacts were written under `/tmp/cartographer-code-graph-evals`, not inside `/Users/saint/dev/agent-runtime-kernel`.
 
 ## Missing Work
 
-The objective is not complete. The strongest remaining gap is the approval-gated runnable eval runner:
+The objective is not complete. The deterministic smoke runner now exists, but the strongest remaining gaps are:
 
-- `scripts/cartographer-code-graph-evals.ts`
-- `eval:cartographer`
-- `eval:cartographer:smoke`
-- `eval:cartographer:baseline`
-- `docs/reports/cartographer-code-graph-*.json`
-- structured smoke task records converted from `.evals/research/cartographer-gold-task-candidates.md`
-- repeatable ARK target profile that writes a report instead of only manual `/tmp` evidence
+- structured task fixtures converted from `.evals/research/cartographer-gold-task-candidates.md`
+- baseline profile semantics beyond the current deterministic contract checks
 - repeatable Codex/adoption profile for graph-first codebase-understanding traces
 - calibrated judge prompt and human labels for semantic overlay usefulness
 
 ## Completion Verdict
 
-Incomplete.
+Partial.
 
-The standalone CLI and PRD are in place, and the CLI has proven it can index ARK as a read-only external test target. The eval plan exists, but it is still not executable eval evidence because no runner, package scripts, or report artifacts exist.
+The standalone CLI, PRD, deterministic smoke eval runner, package scripts, and first smoke report are in place. The CLI has proven it can index ARK as a read-only external test target and write an append-only report from this repo.
 
-Per the `$evals` workflow, the next implementation step is to approve the deterministic smoke runner before scaffolding code outside planning docs.
+The remaining completion gap is the live agent layer: repeatable Codex-style traces that compare baseline-direct, graph-prompted, and graph-mandated workflows without making unsupported quality-lift claims.

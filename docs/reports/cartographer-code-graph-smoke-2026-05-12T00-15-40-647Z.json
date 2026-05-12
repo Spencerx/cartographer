@@ -1,0 +1,195 @@
+{
+  "runId": "cartographer-code-graph-smoke-2026-05-12T00-15-40-647Z",
+  "profile": "smoke",
+  "status": "passed",
+  "startedAt": "2026-05-12T00:15:40.647Z",
+  "finishedAt": "2026-05-12T00:15:41.536Z",
+  "durationMs": 889,
+  "options": {
+    "profile": "smoke",
+    "targetRoot": "/Users/saint/dev/agent-runtime-kernel",
+    "reportDir": "/Users/saint/Dev/cartographer-plugin/docs/reports",
+    "outBase": "/tmp/cartographer-code-graph-evals",
+    "maxFileBytes": 500000
+  },
+  "environment": {
+    "cwd": "/Users/saint/Dev/cartographer-plugin",
+    "platform": "darwin",
+    "arch": "arm64",
+    "bunVersion": "1.3.8",
+    "git": {
+      "commit": "e91830b8fece1d963d3013c61069185eaac5da0f",
+      "dirty": true
+    }
+  },
+  "researchGrounding": [
+    "docs/evals/cartographer-code-graph-eval-suites.md",
+    "docs/evals/cartographer-code-graph-completion-audit.md",
+    "docs/evals/cartographer-code-graph-plan-integrity-audit.md",
+    ".evals/research/cartographer-code-graph-trace-survey.md",
+    ".evals/research/cartographer-axia-stress-run.md"
+  ],
+  "suites": [
+    {
+      "id": "graph-contract:self",
+      "title": "self graph contract",
+      "status": "passed",
+      "startedAt": "2026-05-12T00:15:40.649Z",
+      "finishedAt": "2026-05-12T00:15:40.742Z",
+      "durationMs": 93,
+      "checks": [
+        {
+          "id": "schema-valid",
+          "status": "passed",
+          "summary": "graph snapshot validates",
+          "metrics": {
+            "durationMs": 80,
+            "files": 62,
+            "nodes": 781,
+            "edges": 1108,
+            "findings": 0,
+            "gitDirty": true
+          }
+        },
+        {
+          "id": "unique-node-ids",
+          "status": "passed",
+          "summary": "no duplicate node ids",
+          "metrics": {
+            "count": 781
+          }
+        },
+        {
+          "id": "unique-edge-ids",
+          "status": "passed",
+          "summary": "no duplicate edge ids",
+          "metrics": {
+            "count": 1108
+          }
+        },
+        {
+          "id": "edge-endpoints-exist",
+          "status": "passed",
+          "summary": "all edge endpoints exist",
+          "metrics": {
+            "edgeCount": 1108
+          }
+        },
+        {
+          "id": "no-default-ignored-paths",
+          "status": "passed",
+          "summary": "ignored output paths are excluded"
+        },
+        {
+          "id": "no-env-secret-values",
+          "status": "passed",
+          "summary": "env var nodes do not expose raw values"
+        }
+      ]
+    },
+    {
+      "id": "graph-contract:ark",
+      "title": "ark graph contract",
+      "status": "passed",
+      "startedAt": "2026-05-12T00:15:40.742Z",
+      "finishedAt": "2026-05-12T00:15:41.232Z",
+      "durationMs": 490,
+      "checks": [
+        {
+          "id": "schema-valid",
+          "status": "passed",
+          "summary": "graph snapshot validates",
+          "metrics": {
+            "durationMs": 310,
+            "files": 669,
+            "nodes": 4620,
+            "edges": 10049,
+            "findings": 0,
+            "gitDirty": true
+          }
+        },
+        {
+          "id": "unique-node-ids",
+          "status": "passed",
+          "summary": "no duplicate node ids",
+          "metrics": {
+            "count": 4620
+          }
+        },
+        {
+          "id": "unique-edge-ids",
+          "status": "passed",
+          "summary": "no duplicate edge ids",
+          "metrics": {
+            "count": 10049
+          }
+        },
+        {
+          "id": "edge-endpoints-exist",
+          "status": "passed",
+          "summary": "all edge endpoints exist",
+          "metrics": {
+            "edgeCount": 10049
+          }
+        },
+        {
+          "id": "no-default-ignored-paths",
+          "status": "passed",
+          "summary": "ignored output paths are excluded"
+        },
+        {
+          "id": "no-env-secret-values",
+          "status": "passed",
+          "summary": "env var nodes do not expose raw values"
+        }
+      ]
+    },
+    {
+      "id": "ark-preflight",
+      "title": "ARK read-only preflight navigation",
+      "status": "passed",
+      "startedAt": "2026-05-12T00:15:41.232Z",
+      "finishedAt": "2026-05-12T00:15:41.536Z",
+      "durationMs": 304,
+      "checks": [
+        {
+          "id": "target-path-present",
+          "status": "passed",
+          "summary": "target path appears in primary paths"
+        },
+        {
+          "id": "focused-tests-present",
+          "status": "passed",
+          "summary": "focused test paths are present"
+        },
+        {
+          "id": "focused-commands-first",
+          "status": "passed",
+          "summary": "focused validation commands lead compact context"
+        },
+        {
+          "id": "compact-command-limit-recorded",
+          "status": "passed",
+          "summary": "compact validation command limit is recorded",
+          "metrics": {
+            "limit": 20,
+            "omitted": 103,
+            "emitted": 11
+          }
+        },
+        {
+          "id": "preflight-timings-recorded",
+          "status": "passed",
+          "summary": "preflight timing phases recorded",
+          "metrics": {
+            "durationMs": 304,
+            "loadGraphMs": 291,
+            "buildContextMs": 12,
+            "renderPromptMs": 1
+          }
+        }
+      ]
+    }
+  ],
+  "failures": []
+}

@@ -230,7 +230,16 @@ function importDependencyNodeId(
 ): string | undefined {
 	if (fact.targetPath !== undefined) return fileNodeId(fact.targetPath);
 	if (fact.externalPackage === undefined) return undefined;
+	const localPackageId = localWorkspacePackageNodeId(graph, fact.externalPackage);
+	if (localPackageId !== undefined) return localPackageId;
 	return addExternalDependency(graph, file, fact.externalPackage, fact.specifier);
+}
+
+function localWorkspacePackageNodeId(graph: MutableGraph, packageName: string): string | undefined {
+	for (const node of graph.nodes.values()) {
+		if (node.kind === "Package" && node.label === packageName) return node.id;
+	}
+	return undefined;
 }
 
 function addExternalDependency(

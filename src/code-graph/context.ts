@@ -219,9 +219,14 @@ function summaryForSlice(slice: GraphSlice): GraphSliceSummary {
 function contextPaths(slice: GraphSlice): readonly string[] {
 	const paths = new Set<string>();
 	for (const node of slice.nodes) {
-		if (node.path !== undefined && contextPathNodeKinds.has(node.kind)) paths.add(node.path);
+		if (isContextPathNode(node)) paths.add(node.path);
 	}
 	return [...paths];
+}
+
+function isContextPathNode(node: CodeGraphNode): node is CodeGraphNode & { readonly path: string } {
+	if (node.path === undefined || !contextPathNodeKinds.has(node.kind)) return false;
+	return node.metadata["readableText"] !== false;
 }
 
 function contextTestPaths(slice: GraphSlice): readonly string[] {
@@ -295,6 +300,7 @@ const contextSelectorPrefixes = [
 const contextPathNodeKinds = new Set<CodeGraphNode["kind"]>([
 	"File",
 	"Doc",
+	"Package",
 	"CiWorkflow",
 	"CiJob",
 	"CiRunStep",

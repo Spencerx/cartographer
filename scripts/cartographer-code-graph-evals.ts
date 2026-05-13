@@ -120,6 +120,7 @@ async function main(): Promise<void> {
 	suites.push(await graphContractSuite("self", process.cwd(), join(runOutDir, "self"), options.maxFileBytes));
 	suites.push(await graphContractSuite("ark", options.targetRoot, join(runOutDir, "ark"), options.maxFileBytes));
 	suites.push(await briefPacketSuite(process.cwd(), options.maxFileBytes));
+	suites.push(await briefContextPrecisionSuite(runOutDir, options.maxFileBytes));
 	suites.push(await removalAuditSuite(runOutDir, options.maxFileBytes));
 	suites.push(await notesLifecycleSuite(runOutDir, options.maxFileBytes));
 	suites.push(await monorepoScaleSuite(runOutDir, options.maxFileBytes));
@@ -709,6 +710,92 @@ async function briefPacketSuite(root: string, maxFileBytes: number): Promise<Eva
 	});
 }
 
+async function briefContextPrecisionSuite(runOutDir: string, maxFileBytes: number): Promise<EvalSuite> {
+	return timedSuite("brief-context-precision:fixture", "brief gold-file recall fixture", async () => {
+		const root = await writeMonorepoScaleFixture();
+		const graph = await buildCodeGraph({ root, maxFileBytes });
+		const packet = buildBrief(graph, {
+			path: "apps/web/src/App.tsx",
+			requestedTokens: 8_000,
+			depth: 1,
+		});
+		const emittedPaths = uniqueStrings([
+			...packet.readFirst.map((item) => item.path),
+			...packet.impact.map((item) => item.path),
+			...packet.tests.map((item) => item.path),
+		]);
+		const goldPaths = [
+			"apps/web/src/App.tsx",
+			"apps/web/src/__tests__/App.test.tsx",
+			"packages/shared/package.json",
+		];
+		const goldInTop10 = goldPaths.filter((path) => emittedPaths.slice(0, 10).includes(path));
+		const goldInTop20 = goldPaths.filter((path) => emittedPaths.slice(0, 20).includes(path));
+		const missingPaths = [];
+		for (const path of emittedPaths) {
+			if (!(await Bun.file(join(root, path)).exists())) missingPaths.push(path);
+		}
+		const validationCommands = packet.validation.map((item) => item.command);
+		await writeFile(
+			join(runOutDir, "brief-context-precision-packet.json"),
+			`${JSON.stringify({ emittedPaths, goldPaths, validationCommands, packet }, null, 2)}\n`,
+		);
+		return [
+			check("top-10-gold-file-recall", () =>
+				goldInTop10.length / goldPaths.length >= 0.9
+					? passed("brief captured gold files in the top 10 emitted paths", {
+							recall: goldInTop10.length / goldPaths.length,
+							goldInTop10,
+							goldPaths,
+							emittedPaths: emittedPaths.slice(0, 10),
+						})
+					: failed("top-10-gold-file-recall", "brief missed gold files in the top 10", {
+							goldPaths,
+							goldInTop10,
+							emittedPaths,
+						}),
+			),
+			check("top-20-gold-file-recall", () =>
+				goldInTop20.length / goldPaths.length >= 0.95
+					? passed("brief captured gold files in the top 20 emitted paths", {
+							recall: goldInTop20.length / goldPaths.length,
+							goldInTop20,
+							goldPaths,
+						})
+					: failed("top-20-gold-file-recall", "brief missed gold files in the top 20", {
+							goldPaths,
+							goldInTop20,
+							emittedPaths,
+						}),
+			),
+			check("bounded-context-size", () =>
+				packet.budget.estimatedTokens <= packet.budget.requestedTokens && emittedPaths.length <= 20
+					? passed("brief stayed compact while preserving gold context", {
+							estimatedTokens: packet.budget.estimatedTokens,
+							requestedTokens: packet.budget.requestedTokens,
+							emittedPathCount: emittedPaths.length,
+						})
+					: failed("bounded-context-size", "brief context was too broad or over budget", {
+							budget: packet.budget,
+							emittedPaths,
+						}),
+			),
+			check("hallucinated-paths", () =>
+				missingPaths.length === 0
+					? passed("brief emitted only paths that exist in the fixture")
+					: failed("hallucinated-paths", "brief emitted paths missing from the fixture", { missingPaths }),
+			),
+			check("validation-command-recall", () =>
+				validationCommands.some((command) => command.includes("bun run test"))
+					? passed("brief included package-level validation command", { validationCommands })
+					: failed("validation-command-recall", "brief did not include expected validation command", {
+							validationCommands,
+						}),
+			),
+		];
+	});
+}
+
 async function removalAuditSuite(runOutDir: string, maxFileBytes: number): Promise<EvalSuite> {
 	return timedSuite("removal-audit:fixture", "removal audit fixture", async () => {
 		const root = await writeSupabaseRemovalFixture();
@@ -716,6 +803,30 @@ async function removalAuditSuite(runOutDir: string, maxFileBytes: number): Promi
 		const ledger = await buildRemovalAudit(graph, { target: "supabase" });
 		const verified = await verifyRemovalAudit(graph, ledger, { failOnLeftovers: true });
 		const classes = new Map(ledger.classes.map((classEntry) => [classEntry.class, classEntry]));
+		const seededClasses: readonly RemovalEvidenceClass[] = [
+			"package-dependency",
+			"lockfile-reference",
+			"import-or-sdk-client",
+			"client-wrapper",
+			"env-var",
+			"ci-secret-name",
+			"deploy-config",
+			"sql-migration",
+			"rls-policy",
+			"db-function",
+			"db-trigger",
+			"storage-bucket",
+			"edge-function",
+			"generated-db-type",
+			"auth-user-model",
+			"test",
+			"mock",
+			"fixture",
+			"docs-active",
+			"docs-historical",
+			"unknown-literal-hit",
+		];
+		const foundSeededClasses = seededClasses.filter((className) => (classes.get(className)?.active.length ?? 0) > 0);
 		return [
 			check("ledger-schema", () =>
 				ledger.schemaVersion === "cartographer.audit-ledger.v1" && ledger.kind === "removal"
@@ -723,14 +834,19 @@ async function removalAuditSuite(runOutDir: string, maxFileBytes: number): Promi
 					: failed("ledger-schema", "removal ledger schema was unexpected", {
 							schemaVersion: ledger.schemaVersion,
 							kind: ledger.kind,
-						}),
+					}),
 			),
 			check("evidence-class-recall", () =>
-				(["package-dependency", "import-or-sdk-client", "env-var", "rls-policy", "ci-secret-name"] as const).every(
-					(className: RemovalEvidenceClass) => (classes.get(className)?.active.length ?? 0) > 0,
-				)
-					? passed("fixture audit found seeded evidence classes")
+				foundSeededClasses.length / seededClasses.length >= 0.95
+					? passed("fixture audit found seeded evidence classes", {
+							recall: foundSeededClasses.length / seededClasses.length,
+							foundSeededClasses,
+							seededClasses,
+						})
 					: failed("evidence-class-recall", "fixture audit missed seeded evidence classes", {
+							recall: foundSeededClasses.length / seededClasses.length,
+							foundSeededClasses,
+							seededClasses,
 							classes: [...classes.values()].map((entry) => ({
 								class: entry.class,
 								active: entry.active.length,
@@ -745,6 +861,17 @@ async function removalAuditSuite(runOutDir: string, maxFileBytes: number): Promi
 						})
 					: failed("fail-on-leftovers", "audit verify did not fail closed for leftovers", {
 							verdict: verified.verdict,
+						}),
+			),
+			check("replacement-and-validation-ledger", () =>
+				ledger.replacementRequirements.length === 2 && ledger.validation.length > 0
+					? passed("ledger carries replacement requirements and validation receipts", {
+							replacementRequirements: ledger.replacementRequirements,
+							validation: ledger.validation,
+						})
+					: failed("replacement-and-validation-ledger", "ledger missed replacement requirements or validation receipts", {
+							replacementRequirements: ledger.replacementRequirements,
+							validation: ledger.validation,
 						}),
 			),
 		];
@@ -861,8 +988,17 @@ async function monorepoScaleSuite(runOutDir: string, maxFileBytes: number): Prom
 
 async function writeSupabaseRemovalFixture(): Promise<string> {
 	const root = await mkdtemp(join(tmpdir(), "cartographer-removal-eval-"));
+	await mkdir(join(root, "deploy"), { recursive: true });
+	await mkdir(join(root, "docs/history"), { recursive: true });
+	await mkdir(join(root, "fixtures"), { recursive: true });
+	await mkdir(join(root, "scripts"), { recursive: true });
+	await mkdir(join(root, "src/__mocks__"), { recursive: true });
+	await mkdir(join(root, "src/__tests__"), { recursive: true });
 	await mkdir(join(root, "src/auth"), { recursive: true });
+	await mkdir(join(root, "src/generated"), { recursive: true });
+	await mkdir(join(root, "src/lib"), { recursive: true });
 	await mkdir(join(root, "supabase/migrations"), { recursive: true });
+	await mkdir(join(root, "supabase/functions/sync-user"), { recursive: true });
 	await mkdir(join(root, ".github/workflows"), { recursive: true });
 	await writeFile(
 		join(root, "package.json"),
@@ -872,18 +1008,34 @@ async function writeSupabaseRemovalFixture(): Promise<string> {
 			dependencies: { "@supabase/supabase-js": "2.0.0" },
 		}),
 	);
+	await writeFile(join(root, "bun.lock"), '"@supabase/supabase-js": "2.0.0"\n');
 	await writeFile(
 		join(root, "src/auth/client.ts"),
 		"import { createClient } from '@supabase/supabase-js';\nexport const supabase = createClient(Bun.env.SUPABASE_URL!, Bun.env.SUPABASE_ANON_KEY!);\n",
 	);
+	await writeFile(join(root, "src/lib/supabase-client.ts"), "export const supabaseClient = 'supabase-client-wrapper';\n");
+	await writeFile(join(root, "src/auth/user-model.ts"), "export const userProvider = 'supabase auth user model';\n");
+	await writeFile(join(root, "src/generated/database.types.ts"), "export type SupabaseGeneratedUser = { id: string };\n");
+	await writeFile(join(root, "src/__tests__/supabase.test.ts"), "test('supabase auth flow', () => {});\n");
+	await writeFile(join(root, "src/__mocks__/supabase.ts"), "export const mockSupabase = 'supabase';\n");
+	await writeFile(join(root, "fixtures/supabase-user.json"), "{\"provider\":\"supabase\"}\n");
+	await writeFile(join(root, "docs/supabase-removal.md"), "Active Supabase removal guide.\n");
+	await writeFile(join(root, "docs/history/supabase-migration.md"), "Historical Supabase migration notes.\n");
+	await writeFile(join(root, "scripts/legacy-supabase.sh"), "echo supabase legacy marker\n");
 	await writeFile(
 		join(root, "supabase/migrations/0001_policy.sql"),
 		"create policy user_policy on public.users using (auth.uid() = user_id);\n",
 	);
+	await writeFile(join(root, "supabase/migrations/0002_schema.sql"), "-- supabase migration marker\n");
+	await writeFile(join(root, "supabase/migrations/0003_function.sql"), "create function public.supabase_user() returns text language sql as $$ select 'supabase' $$;\n");
+	await writeFile(join(root, "supabase/migrations/0004_trigger.sql"), "create trigger supabase_user_trigger after insert on public.users execute function public.supabase_user();\n");
+	await writeFile(join(root, "supabase/migrations/0005_storage.sql"), "create policy storage_policy on storage.objects using (bucket_id = 'supabase');\n");
+	await writeFile(join(root, "supabase/functions/sync-user/index.ts"), "export const provider = 'supabase/functions sync';\n");
 	await writeFile(
 		join(root, ".github/workflows/ci.yml"),
 		"name: ci\njobs:\n  test:\n    steps:\n      - run: echo ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}\n",
 	);
+	await writeFile(join(root, "deploy/render.yaml"), "env:\n  SUPABASE_URL: required\n");
 	return root;
 }
 
@@ -1145,6 +1297,10 @@ function duplicateIdCheck(kind: string, ids: readonly string[]): EvalCheck {
 	return duplicates.size === 0
 		? passed(`no duplicate ${kind} ids`, { count: ids.length })
 		: failed(`unique-${kind}-ids`, `duplicate ${kind} ids found`, { duplicates: [...duplicates] });
+}
+
+function uniqueStrings(values: readonly string[]): readonly string[] {
+	return [...new Set(values)];
 }
 
 function edgeEndpointCheck(graph: CodeGraphSnapshot): EvalCheck {

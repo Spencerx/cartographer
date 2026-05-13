@@ -447,8 +447,8 @@ function classifyHit(hit: FileHit, target: string): RemovalEvidenceClass {
 	if (isEdgeFunctionPath(path, target)) return "edge-function";
 	if (isStorageHit(path, line)) return "storage-bucket";
 	if (path.endsWith(".sql") && /\bpolicy\b/.test(line)) return "rls-policy";
-	if (path.endsWith(".sql") && /\bfunction\b/.test(line)) return "db-function";
 	if (path.endsWith(".sql") && /\btrigger\b/.test(line)) return "db-trigger";
+	if (path.endsWith(".sql") && /\bfunction\b/.test(line)) return "db-function";
 	if (path.endsWith(".sql")) return "sql-migration";
 	if (hit.match.startsWith(`${upperTarget}_`) || /\.(env|env\.example)$/.test(path)) return "env-var";
 	if (isCiSecretHit(path, line)) return "ci-secret-name";

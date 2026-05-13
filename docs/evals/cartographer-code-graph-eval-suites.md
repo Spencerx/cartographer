@@ -47,18 +47,20 @@ Current standalone Cartographer read-only ARK target evidence, measured on 2026-
 | Preflight navigation evidence | Target path appears in primary paths; `src/kernel/__tests__/turn-executor.test.ts` appears in test paths |
 | Compact validation commands | Direct focused `bun test ./src/kernel/__tests__/turn-executor.test.ts` is prioritized in the compact validation list; safe broad commands remain available after focused commands |
 
-Axia OS read-only stress run, measured on 2026-05-11:
+Axia OS read-only stress run, refreshed on 2026-05-12:
 
 | Operation | Result |
 | --- | --- |
-| `cartographer:index --root /Users/saint/dev/axia-os --out /tmp/ark-axia-codegraph` | 0.50s wall time, 310 MB max RSS |
-| Graph size | 1,106 files, 5,093 nodes, 12,261 edges, 0 findings |
-| Explicit edge baselines | 400 `TESTS`, 1 `GENERATED_BY`, 228 `SERVICE_QUERIES_TABLE`, 9 `SERVICE_CALLS_RPC`, 88 `TABLE_REFERENCES_TABLE` |
+| `cartographer:index --root /Users/saint/dev/axia-os --out /tmp/cartographer-axia-current --max-file-bytes 500000` | Passed, read-only target with artifacts under `/tmp` |
+| `cartographer:verify --out /tmp/cartographer-axia-current --root /Users/saint/dev/axia-os --fresh --json` | Passed with 0 added, removed, or changed nodes/edges/findings between persisted and live graph |
+| `cartographer:brief --out /tmp/cartographer-axia-current --package apps/web --mode planning --json` | Passed at 5,461 estimated tokens, includes dirty-state freshness, omissions, package validation commands, and no full graph payload |
+| Graph size | 1,149 files, 1,948 nodes, 6,806 edges, 0 findings |
+| Explicit edge baselines | 433 `TESTS`, 1 `GENERATED_BY`, 228 `SERVICE_QUERIES_TABLE`, 9 `SERVICE_CALLS_RPC`, 88 `TABLE_REFERENCES_TABLE` |
 | Monorepo packages | 4 package nodes, 53 package script nodes |
 | Supabase SQL facts | 66 tables, 33 functions, 112 policies, 98 triggers |
-| Dirty state | 39 dirty artifact nodes |
+| Dirty state | 60 dirty artifact nodes |
 | Ignored-path contamination | 0 paths under `node_modules`, `dist`, or generated state dirs |
-| Bounded DB impact | `dbtable:public.agent_runs --depth 1`: 38 nodes, 60 edges with owner/ancestor validation scripts and safe DB schema/type/status scripts; unbounded: 431 nodes, 1,310 edges |
+| Package brief noise control | Selector briefs now skip directories and unreadable asset files in `readFirst` while preserving package manifests, source, docs, tests, and validation surfaces |
 
 Observed gaps:
 
@@ -406,22 +408,35 @@ Current generated reports:
 - `docs/reports/cartographer-code-graph-codex-2026-05-12T23-42-37-069Z.json`
 - `docs/reports/cartographer-code-graph-smoke-2026-05-12T23-45-21-977Z.json`
 - `docs/reports/cartographer-code-graph-codex-2026-05-12T23-45-31-176Z.json`
+- `docs/reports/cartographer-code-graph-smoke-2026-05-12T23-49-12-675Z.json`
+- `docs/reports/cartographer-code-graph-smoke-2026-05-12T23-51-05-291Z.json`
+- `docs/reports/cartographer-code-graph-codex-2026-05-12T23-51-12-904Z.json`
+- `docs/reports/cartographer-code-graph-smoke-2026-05-12T23-51-51-287Z.json`
+- `docs/reports/cartographer-code-graph-codex-2026-05-12T23-51-59-896Z.json`
+- `docs/reports/cartographer-code-graph-smoke-2026-05-12T23-53-53-770Z.json`
+- `docs/reports/cartographer-code-graph-codex-2026-05-12T23-54-03-882Z.json`
+- `docs/reports/cartographer-code-graph-smoke-2026-05-12T23-56-46-019Z.json`
+- `docs/reports/cartographer-code-graph-codex-2026-05-12T23-56-46-017Z.json`
 
 Latest smoke report:
 
-- status: `passed`, suites: `graph-contract:self`, `graph-contract:ark`, `brief-packet:self`, `removal-audit:fixture`, `notes-lifecycle:fixture`, `monorepo-scale:fixture`, `ark-preflight`, `cli-output-brakes:ark`, failures: 0
+- status: `passed`, suites: `graph-contract:self`, `graph-contract:ark`, `brief-packet:self`, `brief-context-precision:fixture`, `removal-audit:fixture`, `notes-lifecycle:fixture`, `monorepo-scale:fixture`, `ark-preflight`, `cli-output-brakes:ark`, failures: 0
 - Latest graph contract suites run 10 checks each, including `symbols-are-typed-facts`, which verifies 0 symbol graph nodes and 0 `DEFINES` edges while preserving typed symbol facts, `provenance-confidence-vocabulary`, which rejects legacy `deterministic` confidence and requires the precise v2 vocabulary, and `manifest-default-provenance`, which verifies snapshot-level default provenance is recorded. The SQLite artifact compatibility check now also covers the default v2 output layout, including `notes.jsonl`, `briefs/`, `audits/`, `reports/`, and `exports/`.
 - The removal audit command test now verifies `audit verify` uses a live graph by default by adding a leftover file after ledger creation and asserting verification catches it.
-- `cli-output-brakes:ark` proves default ARK `impact --json` stays compact at 4,107 estimated tokens, default ARK `context --json` stays compact at 3,898 estimated tokens with depth 1, and `impact --depth 3` fails closed without an explicit large/debug flag.
+- `brief-context-precision:fixture` now records top-10 and top-20 gold-file recall at 1.0 for a monorepo frontend-to-shared-package task, emits 6 paths, stays at 1,513 estimated tokens, emits no hallucinated paths, and includes focused plus package-level validation commands.
+- `removal-audit:fixture` now seeds 21 active Supabase-style evidence classes and records 1.0 evidence-class recall across package dependencies, lockfiles, imports, client wrappers, env vars, CI secrets, deploy config, SQL migrations, RLS, DB functions, triggers, storage, edge functions, generated DB types, auth/user model, tests, mocks, fixtures, active docs, historical docs, and unknown literal hits.
+- `cli-output-brakes:ark` proves default ARK `impact --json` stays compact at 4,107 estimated tokens, default ARK `context --json` stays compact at 3,897 estimated tokens with depth 1, and `impact --depth 3` fails closed without an explicit large/debug flag.
 
 Latest recorded Codex trace report:
 
-- status: `passed`, suites: `graph-contract:self`, `graph-contract:ark`, `brief-packet:self`, `removal-audit:fixture`, `notes-lifecycle:fixture`, `monorepo-scale:fixture`, `ark-preflight`, `cli-output-brakes:ark`, `codex-trace-adoption`, `codex-trace-outcomes`, failures: 0
+- status: `passed`, suites: `graph-contract:self`, `graph-contract:ark`, `brief-packet:self`, `brief-context-precision:fixture`, `removal-audit:fixture`, `notes-lifecycle:fixture`, `monorepo-scale:fixture`, `ark-preflight`, `cli-output-brakes:ark`, `codex-trace-adoption`, `codex-trace-outcomes`, failures: 0
 - Graph contract suites now include SQLite artifact compatibility checks, symbol schema-diet checks, provenance confidence-vocabulary checks, and manifest default-provenance checks in addition to in-memory graph schema checks.
 - Recorded traces include `baseline-direct`, `cartographer-brief`, and `cartographer-brief-plus-audit` conditions.
 - The Supabase removal comparison now requires a passing `audit-evidence-lift` check for `cartographer-brief-plus-audit`.
 
 The earlier codex report at `00-22-58-653Z` is retained as an append-only failed implementation receipt; the failure was a local file-read API bug in the runner, not a graph/adoption failure.
+
+The smoke report at `23-49-12-675Z` is retained as an append-only failed development receipt; it exposed that local workspace imports were not surfacing imported workspace packages in path briefs. That gap was fixed by resolving local workspace imports to package nodes and including package manifests as context paths.
 
 The earlier live codex report at `00-27-41-445Z` is retained as an append-only passed implementation receipt before stable live check IDs were added.
 

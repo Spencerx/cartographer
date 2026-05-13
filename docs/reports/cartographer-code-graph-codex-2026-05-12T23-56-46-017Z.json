@@ -1,0 +1,1102 @@
+{
+  "runId": "cartographer-code-graph-codex-2026-05-12T23-56-46-017Z",
+  "profile": "codex",
+  "status": "passed",
+  "startedAt": "2026-05-12T23:56:46.017Z",
+  "finishedAt": "2026-05-12T23:56:47.651Z",
+  "durationMs": 1634,
+  "options": {
+    "profile": "codex",
+    "targetRoot": "/Users/saint/dev/agent-runtime-kernel",
+    "reportDir": "/Users/saint/Dev/cartographer-plugin/docs/reports",
+    "outBase": "/tmp/cartographer-code-graph-evals",
+    "maxFileBytes": 500000,
+    "traceSuite": "/Users/saint/Dev/cartographer-plugin/.evals/fixtures/codex-traces/cases.json",
+    "live": false,
+    "codexPath": "codex"
+  },
+  "environment": {
+    "cwd": "/Users/saint/Dev/cartographer-plugin",
+    "platform": "darwin",
+    "arch": "arm64",
+    "bunVersion": "1.3.8",
+    "git": {
+      "commit": "691bd1c4c0ab51975b5f58ca225aa966fe5ba5db",
+      "dirty": true
+    }
+  },
+  "researchGrounding": [
+    "docs/evals/cartographer-code-graph-eval-suites.md",
+    "docs/evals/cartographer-code-graph-completion-audit.md",
+    "docs/evals/cartographer-code-graph-plan-integrity-audit.md",
+    ".evals/research/cartographer-code-graph-trace-survey.md",
+    ".evals/research/cartographer-axia-stress-run.md",
+    ".evals/fixtures/codex-traces/cases.json",
+    "codex exec --json --ephemeral"
+  ],
+  "suites": [
+    {
+      "id": "graph-contract:self",
+      "title": "self graph contract",
+      "status": "passed",
+      "startedAt": "2026-05-12T23:56:46.018Z",
+      "finishedAt": "2026-05-12T23:56:46.191Z",
+      "durationMs": 173,
+      "checks": [
+        {
+          "id": "schema-valid",
+          "status": "passed",
+          "summary": "graph snapshot validates",
+          "metrics": {
+            "durationMs": 121,
+            "files": 131,
+            "nodes": 219,
+            "edges": 507,
+            "findings": 0,
+            "gitDirty": true
+          }
+        },
+        {
+          "id": "unique-node-ids",
+          "status": "passed",
+          "summary": "no duplicate node ids",
+          "metrics": {
+            "count": 219
+          }
+        },
+        {
+          "id": "unique-edge-ids",
+          "status": "passed",
+          "summary": "no duplicate edge ids",
+          "metrics": {
+            "count": 507
+          }
+        },
+        {
+          "id": "edge-endpoints-exist",
+          "status": "passed",
+          "summary": "all edge endpoints exist",
+          "metrics": {
+            "edgeCount": 507
+          }
+        },
+        {
+          "id": "symbols-are-typed-facts",
+          "status": "passed",
+          "summary": "symbols are typed file facts instead of graph nodes",
+          "metrics": {
+            "symbolNodes": 0,
+            "defineEdges": 0,
+            "filesWithSymbols": 43
+          }
+        },
+        {
+          "id": "provenance-confidence-vocabulary",
+          "status": "passed",
+          "summary": "provenance uses precise v2 confidence vocabulary",
+          "metrics": {
+            "factCount": 726,
+            "confidenceCounts": {
+              "exact": 205,
+              "parser-backed": 521
+            }
+          }
+        },
+        {
+          "id": "manifest-default-provenance",
+          "status": "passed",
+          "summary": "manifest records snapshot-level default provenance",
+          "metrics": {
+            "defaultProvenance": {
+              "source": "syntax",
+              "confidence": "parser-backed",
+              "freshness": "fresh",
+              "snapshotCommit": "691bd1c4c0ab51975b5f58ca225aa966fe5ba5db",
+              "scannerVersion": "0.1.0"
+            }
+          }
+        },
+        {
+          "id": "sqlite-artifacts-valid",
+          "status": "passed",
+          "summary": "SQLite artifacts validate",
+          "metrics": {
+            "schemaVersion": "cartographer.graph.v2",
+            "totals": {
+              "files": 131,
+              "packages": 1,
+              "nodes": 219,
+              "edges": 507,
+              "findings": 0
+            }
+          }
+        },
+        {
+          "id": "no-default-ignored-paths",
+          "status": "passed",
+          "summary": "ignored output paths are excluded"
+        },
+        {
+          "id": "no-env-secret-values",
+          "status": "passed",
+          "summary": "env var nodes do not expose raw values"
+        }
+      ]
+    },
+    {
+      "id": "graph-contract:ark",
+      "title": "ark graph contract",
+      "status": "passed",
+      "startedAt": "2026-05-12T23:56:46.191Z",
+      "finishedAt": "2026-05-12T23:56:46.747Z",
+      "durationMs": 556,
+      "checks": [
+        {
+          "id": "schema-valid",
+          "status": "passed",
+          "summary": "graph snapshot validates",
+          "metrics": {
+            "durationMs": 343,
+            "files": 740,
+            "nodes": 1034,
+            "edges": 5915,
+            "findings": 0,
+            "gitDirty": true
+          }
+        },
+        {
+          "id": "unique-node-ids",
+          "status": "passed",
+          "summary": "no duplicate node ids",
+          "metrics": {
+            "count": 1034
+          }
+        },
+        {
+          "id": "unique-edge-ids",
+          "status": "passed",
+          "summary": "no duplicate edge ids",
+          "metrics": {
+            "count": 5915
+          }
+        },
+        {
+          "id": "edge-endpoints-exist",
+          "status": "passed",
+          "summary": "all edge endpoints exist",
+          "metrics": {
+            "edgeCount": 5915
+          }
+        },
+        {
+          "id": "symbols-are-typed-facts",
+          "status": "passed",
+          "summary": "symbols are typed file facts instead of graph nodes",
+          "metrics": {
+            "symbolNodes": 0,
+            "defineEdges": 0,
+            "filesWithSymbols": 521
+          }
+        },
+        {
+          "id": "provenance-confidence-vocabulary",
+          "status": "passed",
+          "summary": "provenance uses precise v2 confidence vocabulary",
+          "metrics": {
+            "factCount": 6949,
+            "confidenceCounts": {
+              "exact": 1017,
+              "parser-backed": 5932
+            }
+          }
+        },
+        {
+          "id": "manifest-default-provenance",
+          "status": "passed",
+          "summary": "manifest records snapshot-level default provenance",
+          "metrics": {
+            "defaultProvenance": {
+              "source": "syntax",
+              "confidence": "parser-backed",
+              "freshness": "fresh",
+              "snapshotCommit": "a8ae0845673c968ccf1aab08d1264246e128443a",
+              "scannerVersion": "0.1.0"
+            }
+          }
+        },
+        {
+          "id": "sqlite-artifacts-valid",
+          "status": "passed",
+          "summary": "SQLite artifacts validate",
+          "metrics": {
+            "schemaVersion": "cartographer.graph.v2",
+            "totals": {
+              "files": 740,
+              "packages": 1,
+              "nodes": 1034,
+              "edges": 5915,
+              "findings": 0
+            }
+          }
+        },
+        {
+          "id": "no-default-ignored-paths",
+          "status": "passed",
+          "summary": "ignored output paths are excluded"
+        },
+        {
+          "id": "no-env-secret-values",
+          "status": "passed",
+          "summary": "env var nodes do not expose raw values"
+        }
+      ]
+    },
+    {
+      "id": "brief-packet:self",
+      "title": "bounded brief packet",
+      "status": "passed",
+      "startedAt": "2026-05-12T23:56:46.747Z",
+      "finishedAt": "2026-05-12T23:56:46.860Z",
+      "durationMs": 113,
+      "checks": [
+        {
+          "id": "schema-version",
+          "status": "passed",
+          "summary": "brief packet has expected schema"
+        },
+        {
+          "id": "budget-compliance",
+          "status": "passed",
+          "summary": "brief stayed under requested token budget",
+          "metrics": {
+            "estimatedTokens": 3196,
+            "requestedTokens": 8000,
+            "omissions": 1
+          }
+        },
+        {
+          "id": "anchor-first",
+          "status": "passed",
+          "summary": "path brief ranks the selected path first",
+          "metrics": {
+            "nodeId": "file:src/code-graph/commands.ts",
+            "kind": "File"
+          }
+        },
+        {
+          "id": "bounded-sections",
+          "status": "passed",
+          "summary": "brief sections are bounded",
+          "metrics": {
+            "readFirst": 15,
+            "impact": 12,
+            "validation": 4
+          }
+        }
+      ]
+    },
+    {
+      "id": "brief-context-precision:fixture",
+      "title": "brief gold-file recall fixture",
+      "status": "passed",
+      "startedAt": "2026-05-12T23:56:46.860Z",
+      "finishedAt": "2026-05-12T23:56:46.912Z",
+      "durationMs": 52,
+      "checks": [
+        {
+          "id": "top-10-gold-file-recall",
+          "status": "passed",
+          "summary": "brief captured gold files in the top 10 emitted paths",
+          "metrics": {
+            "recall": 1,
+            "goldInTop10": [
+              "apps/web/src/App.tsx",
+              "apps/web/src/__tests__/App.test.tsx",
+              "packages/shared/package.json"
+            ],
+            "goldPaths": [
+              "apps/web/src/App.tsx",
+              "apps/web/src/__tests__/App.test.tsx",
+              "packages/shared/package.json"
+            ],
+            "emittedPaths": [
+              "apps/web/src/App.tsx",
+              "apps/web/src/__tests__/App.test.tsx",
+              "docs/architecture.md",
+              "apps/web/package.json",
+              "package.json",
+              "packages/shared/package.json"
+            ]
+          }
+        },
+        {
+          "id": "top-20-gold-file-recall",
+          "status": "passed",
+          "summary": "brief captured gold files in the top 20 emitted paths",
+          "metrics": {
+            "recall": 1,
+            "goldInTop20": [
+              "apps/web/src/App.tsx",
+              "apps/web/src/__tests__/App.test.tsx",
+              "packages/shared/package.json"
+            ],
+            "goldPaths": [
+              "apps/web/src/App.tsx",
+              "apps/web/src/__tests__/App.test.tsx",
+              "packages/shared/package.json"
+            ]
+          }
+        },
+        {
+          "id": "bounded-context-size",
+          "status": "passed",
+          "summary": "brief stayed compact while preserving gold context",
+          "metrics": {
+            "estimatedTokens": 1513,
+            "requestedTokens": 8000,
+            "emittedPathCount": 6
+          }
+        },
+        {
+          "id": "hallucinated-paths",
+          "status": "passed",
+          "summary": "brief emitted only paths that exist in the fixture"
+        },
+        {
+          "id": "validation-command-recall",
+          "status": "passed",
+          "summary": "brief included package-level validation command",
+          "metrics": {
+            "validationCommands": [
+              "cd apps/web && bun test ./src/__tests__/App.test.tsx",
+              "cd apps/web && bun test ./src",
+              "cd apps/web && bun run typecheck",
+              "cd apps/web && bun run test",
+              "bun run typecheck",
+              "bun run test"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "removal-audit:fixture",
+      "title": "removal audit fixture",
+      "status": "passed",
+      "startedAt": "2026-05-12T23:56:46.912Z",
+      "finishedAt": "2026-05-12T23:56:46.965Z",
+      "durationMs": 53,
+      "checks": [
+        {
+          "id": "ledger-schema",
+          "status": "passed",
+          "summary": "removal ledger has expected schema"
+        },
+        {
+          "id": "evidence-class-recall",
+          "status": "passed",
+          "summary": "fixture audit found seeded evidence classes",
+          "metrics": {
+            "recall": 1,
+            "foundSeededClasses": [
+              "package-dependency",
+              "lockfile-reference",
+              "import-or-sdk-client",
+              "client-wrapper",
+              "env-var",
+              "ci-secret-name",
+              "deploy-config",
+              "sql-migration",
+              "rls-policy",
+              "db-function",
+              "db-trigger",
+              "storage-bucket",
+              "edge-function",
+              "generated-db-type",
+              "auth-user-model",
+              "test",
+              "mock",
+              "fixture",
+              "docs-active",
+              "docs-historical",
+              "unknown-literal-hit"
+            ],
+            "seededClasses": [
+              "package-dependency",
+              "lockfile-reference",
+              "import-or-sdk-client",
+              "client-wrapper",
+              "env-var",
+              "ci-secret-name",
+              "deploy-config",
+              "sql-migration",
+              "rls-policy",
+              "db-function",
+              "db-trigger",
+              "storage-bucket",
+              "edge-function",
+              "generated-db-type",
+              "auth-user-model",
+              "test",
+              "mock",
+              "fixture",
+              "docs-active",
+              "docs-historical",
+              "unknown-literal-hit"
+            ]
+          }
+        },
+        {
+          "id": "fail-on-leftovers",
+          "status": "passed",
+          "summary": "audit verify fails closed when leftovers remain",
+          "metrics": {
+            "blockers": [
+              "2 active package-dependency hit(s) remain",
+              "2 active lockfile-reference hit(s) remain",
+              "2 active import-or-sdk-client hit(s) remain",
+              "3 active client-wrapper hit(s) remain",
+              "4 active env-var hit(s) remain",
+              "1 active ci-secret-name hit(s) remain",
+              "1 active deploy-config hit(s) remain",
+              "1 active sql-migration hit(s) remain",
+              "1 active rls-policy hit(s) remain",
+              "1 active db-function hit(s) remain",
+              "1 active db-trigger hit(s) remain",
+              "2 active storage-bucket hit(s) remain",
+              "2 active edge-function hit(s) remain",
+              "1 active generated-db-type hit(s) remain",
+              "1 active auth-user-model hit(s) remain",
+              "1 active test hit(s) remain",
+              "2 active mock hit(s) remain",
+              "1 active fixture hit(s) remain",
+              "1 active docs-active hit(s) remain",
+              "1 active docs-historical hit(s) remain",
+              "1 active unknown-literal-hit hit(s) remain"
+            ]
+          }
+        },
+        {
+          "id": "replacement-and-validation-ledger",
+          "status": "passed",
+          "summary": "ledger carries replacement requirements and validation receipts",
+          "metrics": {
+            "replacementRequirements": [
+              {
+                "surface": "auth",
+                "expectedReplacement": "replacement auth provider",
+                "status": "needs-review",
+                "evidence": []
+              },
+              {
+                "surface": "database",
+                "expectedReplacement": "replacement database provider",
+                "status": "needs-review",
+                "evidence": []
+              }
+            ],
+            "validation": [
+              {
+                "command": "bun run test",
+                "cwd": ".",
+                "status": "not-run",
+                "safety": "safe",
+                "reason": "package validation script discovered from graph"
+              },
+              {
+                "command": "bun run typecheck",
+                "cwd": ".",
+                "status": "not-run",
+                "safety": "safe",
+                "reason": "package validation script discovered from graph"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "notes-lifecycle:fixture",
+      "title": "notes lifecycle fixture",
+      "status": "passed",
+      "startedAt": "2026-05-12T23:56:46.965Z",
+      "finishedAt": "2026-05-12T23:56:47.071Z",
+      "durationMs": 106,
+      "checks": [
+        {
+          "id": "ingest-candidate",
+          "status": "passed",
+          "summary": "notes ingest creates candidate notes",
+          "metrics": {
+            "noteId": "note:a26f52da65ae421d"
+          }
+        },
+        {
+          "id": "accept-grounded",
+          "status": "passed",
+          "summary": "audit-clean candidate can be accepted",
+          "metrics": {
+            "noteId": "note:a26f52da65ae421d"
+          }
+        },
+        {
+          "id": "stale-after-drift",
+          "status": "passed",
+          "summary": "accepted note becomes stale after evidence hash drift",
+          "metrics": {
+            "noteId": "note:a26f52da65ae421d"
+          }
+        }
+      ]
+    },
+    {
+      "id": "monorepo-scale:fixture",
+      "title": "monorepo package and surface scale fixture",
+      "status": "passed",
+      "startedAt": "2026-05-12T23:56:47.071Z",
+      "finishedAt": "2026-05-12T23:56:47.137Z",
+      "durationMs": 66,
+      "checks": [
+        {
+          "id": "package-membership",
+          "status": "passed",
+          "summary": "frontend app file carries package and surface membership",
+          "metrics": {
+            "packageId": "package:apps/web",
+            "surface": "frontend"
+          }
+        },
+        {
+          "id": "generated-surface",
+          "status": "passed",
+          "summary": "generated file is classified as generated surface",
+          "metrics": {
+            "packageId": "package:packages/shared",
+            "surface": "generated"
+          }
+        },
+        {
+          "id": "brief-budget",
+          "status": "passed",
+          "summary": "monorepo path brief stayed under budget",
+          "metrics": {
+            "estimatedTokens": 1513,
+            "requestedTokens": 8000,
+            "readFirst": 6,
+            "impact": 5
+          }
+        },
+        {
+          "id": "brief-membership",
+          "status": "passed",
+          "summary": "brief read-first path exposes package and surface membership",
+          "metrics": {
+            "first": {
+              "rank": 1,
+              "path": "apps/web/src/App.tsx",
+              "nodeId": "file:apps/web/src/App.tsx",
+              "kind": "File",
+              "packageId": "package:apps/web",
+              "surface": "frontend",
+              "reason": "primary graph path",
+              "relationship": "primary",
+              "depth": 0,
+              "confidence": "exact",
+              "evidence": [
+                {
+                  "path": "apps/web/src/App.tsx"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "ark-preflight",
+      "title": "ARK read-only preflight navigation",
+      "status": "passed",
+      "startedAt": "2026-05-12T23:56:47.137Z",
+      "finishedAt": "2026-05-12T23:56:47.479Z",
+      "durationMs": 342,
+      "checks": [
+        {
+          "id": "target-path-present",
+          "status": "passed",
+          "summary": "target path appears in primary paths"
+        },
+        {
+          "id": "focused-tests-present",
+          "status": "passed",
+          "summary": "focused test paths are present"
+        },
+        {
+          "id": "focused-commands-first",
+          "status": "passed",
+          "summary": "focused validation commands lead compact context"
+        },
+        {
+          "id": "compact-command-limit-recorded",
+          "status": "passed",
+          "summary": "compact validation command limit is recorded",
+          "metrics": {
+            "limit": 20,
+            "omitted": 142,
+            "emitted": 20
+          }
+        },
+        {
+          "id": "preflight-timings-recorded",
+          "status": "passed",
+          "summary": "preflight timing phases recorded",
+          "metrics": {
+            "durationMs": 341,
+            "loadGraphMs": 334,
+            "buildContextMs": 6,
+            "renderPromptMs": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "cli-output-brakes:ark",
+      "title": "ARK CLI output brakes",
+      "status": "passed",
+      "startedAt": "2026-05-12T23:56:47.479Z",
+      "finishedAt": "2026-05-12T23:56:47.647Z",
+      "durationMs": 168,
+      "checks": [
+        {
+          "id": "impact-default-compact",
+          "status": "passed",
+          "summary": "default impact JSON is compact and under the normal token cap",
+          "metrics": {
+            "exitCode": 0,
+            "chars": 16427,
+            "estimatedTokens": 4107,
+            "totals": {
+              "nodes": 53,
+              "edges": 124,
+              "findings": 0
+            },
+            "omissions": {
+              "paths": 0,
+              "nodes": 3,
+              "edges": 124
+            }
+          }
+        },
+        {
+          "id": "context-default-depth-one",
+          "status": "passed",
+          "summary": "default context JSON is compact at depth 1",
+          "metrics": {
+            "exitCode": 0,
+            "chars": 15586,
+            "estimatedTokens": 3897,
+            "depth": 1,
+            "totals": {
+              "slice": {
+                "nodes": 63,
+                "edges": 362,
+                "findings": 0
+              },
+              "impact": {
+                "nodes": 53,
+                "edges": 124,
+                "findings": 0
+              }
+            }
+          }
+        },
+        {
+          "id": "impact-depth-cap",
+          "status": "passed",
+          "summary": "impact depth above the normal cap requires an explicit escape hatch",
+          "metrics": {
+            "exitCode": 1,
+            "stderr": "VALIDATION_FAILED: impact depth above 2 requires --allow-large-output or --debug-graph"
+          }
+        }
+      ]
+    },
+    {
+      "id": "codex-trace-adoption",
+      "title": "recorded Codex-style graph adoption traces",
+      "status": "passed",
+      "startedAt": "2026-05-12T23:56:47.647Z",
+      "finishedAt": "2026-05-12T23:56:47.650Z",
+      "durationMs": 3,
+      "checks": [
+        {
+          "id": "codex-baseline-builder:adoption",
+          "status": "passed",
+          "summary": "codex-baseline-builder adoption matched expected condition",
+          "metrics": {
+            "condition": "baseline-direct",
+            "adopted": false,
+            "eventCount": 5,
+            "traceDurationMs": 95000,
+            "toolCommandCount": 4,
+            "sourceReadBeforeGraphCount": 3,
+            "graphPreflightResultCount": 0
+          }
+        },
+        {
+          "id": "codex-baseline-builder:expectations",
+          "status": "passed",
+          "summary": "codex-baseline-builder final response and executed command expectations passed",
+          "metrics": {
+            "expectedTextCount": 1,
+            "expectedPathCount": 3,
+            "expectedCommandCount": 1,
+            "expectedExecutedCommandCount": 1,
+            "finalTextHitCount": 1,
+            "finalPathHitCount": 3,
+            "toolPathHitCount": 2,
+            "sourceReadPathHitCount": 2,
+            "finalCommandHitCount": 1,
+            "toolCommandHitCount": 1,
+            "executedCommandHitCount": 1
+          }
+        },
+        {
+          "id": "codex-graph-mandated-builder:adoption",
+          "status": "passed",
+          "summary": "codex-graph-mandated-builder adoption matched expected condition",
+          "metrics": {
+            "condition": "cartographer-brief",
+            "adopted": true,
+            "eventCount": 6,
+            "traceDurationMs": 32000,
+            "toolCommandCount": 4,
+            "sourceReadBeforeGraphCount": 0,
+            "firstGraphCommandOffsetMs": 0,
+            "graphPreflightResultCount": 1,
+            "firstGraphPreflightDurationMs": 340,
+            "firstGraphPreflightTimings": {
+              "loadGraphMs": 320,
+              "buildContextMs": 18,
+              "renderPromptMs": 2
+            }
+          }
+        },
+        {
+          "id": "codex-graph-mandated-builder:graph-first",
+          "status": "passed",
+          "summary": "codex-graph-mandated-builder used graph context before source reads"
+        },
+        {
+          "id": "codex-graph-mandated-builder:expectations",
+          "status": "passed",
+          "summary": "codex-graph-mandated-builder final response and executed command expectations passed",
+          "metrics": {
+            "expectedTextCount": 1,
+            "expectedPathCount": 3,
+            "expectedCommandCount": 1,
+            "expectedExecutedCommandCount": 1,
+            "finalTextHitCount": 1,
+            "finalPathHitCount": 3,
+            "toolPathHitCount": 3,
+            "sourceReadPathHitCount": 3,
+            "finalCommandHitCount": 1,
+            "toolCommandHitCount": 1,
+            "executedCommandHitCount": 1
+          }
+        },
+        {
+          "id": "codex-graph-prompted-adoption:adoption",
+          "status": "passed",
+          "summary": "codex-graph-prompted-adoption adoption matched expected condition",
+          "metrics": {
+            "condition": "cartographer-brief",
+            "adopted": true,
+            "eventCount": 5,
+            "traceDurationMs": 20000,
+            "toolCommandCount": 3,
+            "sourceReadBeforeGraphCount": 0,
+            "firstGraphCommandOffsetMs": 0,
+            "graphPreflightResultCount": 1,
+            "firstGraphPreflightDurationMs": 290,
+            "firstGraphPreflightTimings": {
+              "loadGraphMs": 270,
+              "buildContextMs": 18,
+              "renderPromptMs": 2
+            }
+          }
+        },
+        {
+          "id": "codex-graph-prompted-adoption:graph-first",
+          "status": "passed",
+          "summary": "codex-graph-prompted-adoption used graph context before source reads"
+        },
+        {
+          "id": "codex-graph-prompted-adoption:expectations",
+          "status": "passed",
+          "summary": "codex-graph-prompted-adoption final response and executed command expectations passed",
+          "metrics": {
+            "expectedTextCount": 1,
+            "expectedPathCount": 1,
+            "expectedCommandCount": 1,
+            "expectedExecutedCommandCount": 1,
+            "finalTextHitCount": 1,
+            "finalPathHitCount": 1,
+            "toolPathHitCount": 1,
+            "sourceReadPathHitCount": 1,
+            "finalCommandHitCount": 1,
+            "toolCommandHitCount": 1,
+            "executedCommandHitCount": 1
+          }
+        },
+        {
+          "id": "codex-baseline-supabase-removal:adoption",
+          "status": "passed",
+          "summary": "codex-baseline-supabase-removal adoption matched expected condition",
+          "metrics": {
+            "condition": "baseline-direct",
+            "adopted": false,
+            "eventCount": 4,
+            "traceDurationMs": 95000,
+            "toolCommandCount": 3,
+            "sourceReadBeforeGraphCount": 2,
+            "graphPreflightResultCount": 0
+          }
+        },
+        {
+          "id": "codex-baseline-supabase-removal:expectations",
+          "status": "passed",
+          "summary": "codex-baseline-supabase-removal final response and executed command expectations passed",
+          "metrics": {
+            "expectedTextCount": 1,
+            "expectedPathCount": 2,
+            "expectedCommandCount": 1,
+            "expectedExecutedCommandCount": 1,
+            "finalTextHitCount": 1,
+            "finalPathHitCount": 2,
+            "toolPathHitCount": 2,
+            "sourceReadPathHitCount": 2,
+            "finalCommandHitCount": 1,
+            "toolCommandHitCount": 1,
+            "executedCommandHitCount": 1
+          }
+        },
+        {
+          "id": "codex-cartographer-brief-plus-audit-supabase-removal:adoption",
+          "status": "passed",
+          "summary": "codex-cartographer-brief-plus-audit-supabase-removal adoption matched expected condition",
+          "metrics": {
+            "condition": "cartographer-brief-plus-audit",
+            "adopted": true,
+            "eventCount": 4,
+            "traceDurationMs": 36000,
+            "toolCommandCount": 3,
+            "sourceReadBeforeGraphCount": 0,
+            "firstGraphCommandOffsetMs": 0,
+            "graphPreflightResultCount": 0
+          }
+        },
+        {
+          "id": "codex-cartographer-brief-plus-audit-supabase-removal:graph-first",
+          "status": "passed",
+          "summary": "codex-cartographer-brief-plus-audit-supabase-removal used graph context before source reads"
+        },
+        {
+          "id": "codex-cartographer-brief-plus-audit-supabase-removal:expectations",
+          "status": "passed",
+          "summary": "codex-cartographer-brief-plus-audit-supabase-removal final response and executed command expectations passed",
+          "metrics": {
+            "expectedTextCount": 1,
+            "expectedPathCount": 3,
+            "expectedCommandCount": 1,
+            "expectedExecutedCommandCount": 1,
+            "finalTextHitCount": 1,
+            "finalPathHitCount": 3,
+            "toolPathHitCount": 1,
+            "sourceReadPathHitCount": 1,
+            "finalCommandHitCount": 1,
+            "toolCommandHitCount": 1,
+            "executedCommandHitCount": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "codex-trace-outcomes",
+      "title": "recorded graph-vs-baseline outcome comparisons",
+      "status": "passed",
+      "startedAt": "2026-05-12T23:56:47.650Z",
+      "finishedAt": "2026-05-12T23:56:47.651Z",
+      "durationMs": 1,
+      "checks": [
+        {
+          "id": "builder-exploration:expected-evidence-non-regression",
+          "status": "passed",
+          "summary": "graph-assisted trace preserved expected file and validation evidence",
+          "metrics": {
+            "baseline": {
+              "expectedTextCount": 1,
+              "expectedPathCount": 3,
+              "expectedCommandCount": 1,
+              "expectedExecutedCommandCount": 1,
+              "finalTextHitCount": 1,
+              "finalPathHitCount": 3,
+              "toolPathHitCount": 2,
+              "sourceReadPathHitCount": 2,
+              "finalCommandHitCount": 1,
+              "toolCommandHitCount": 1,
+              "executedCommandHitCount": 1
+            },
+            "graph": {
+              "expectedTextCount": 1,
+              "expectedPathCount": 3,
+              "expectedCommandCount": 1,
+              "expectedExecutedCommandCount": 1,
+              "finalTextHitCount": 1,
+              "finalPathHitCount": 3,
+              "toolPathHitCount": 3,
+              "sourceReadPathHitCount": 3,
+              "finalCommandHitCount": 1,
+              "toolCommandHitCount": 1,
+              "executedCommandHitCount": 1
+            }
+          }
+        },
+        {
+          "id": "builder-exploration:source-read-noise",
+          "status": "passed",
+          "summary": "graph-assisted trace did not increase source-read noise",
+          "metrics": {
+            "baseline": {
+              "sourceReadCount": 3,
+              "irrelevantSourceReadCount": 1,
+              "irrelevantSourceReadCommands": [
+                "rg \"buildCodeGraph|CodeGraphNode\" src/code-graph"
+              ]
+            },
+            "graph": {
+              "sourceReadCount": 2,
+              "irrelevantSourceReadCount": 0,
+              "irrelevantSourceReadCommands": []
+            }
+          }
+        },
+        {
+          "id": "builder-exploration:unsupported-path-claims",
+          "status": "passed",
+          "summary": "graph-assisted trace did not increase unsupported path claims",
+          "metrics": {
+            "baseline": {
+              "unsupportedPathClaimCount": 0,
+              "unsupportedPathClaims": []
+            },
+            "graph": {
+              "unsupportedPathClaimCount": 0,
+              "unsupportedPathClaims": []
+            }
+          }
+        },
+        {
+          "id": "supabase-removal:expected-evidence-non-regression",
+          "status": "passed",
+          "summary": "graph-assisted trace preserved expected file and validation evidence",
+          "metrics": {
+            "baseline": {
+              "expectedTextCount": 1,
+              "expectedPathCount": 2,
+              "expectedCommandCount": 1,
+              "expectedExecutedCommandCount": 1,
+              "finalTextHitCount": 1,
+              "finalPathHitCount": 2,
+              "toolPathHitCount": 2,
+              "sourceReadPathHitCount": 2,
+              "finalCommandHitCount": 1,
+              "toolCommandHitCount": 1,
+              "executedCommandHitCount": 1
+            },
+            "graph": {
+              "expectedTextCount": 1,
+              "expectedPathCount": 3,
+              "expectedCommandCount": 1,
+              "expectedExecutedCommandCount": 1,
+              "finalTextHitCount": 1,
+              "finalPathHitCount": 3,
+              "toolPathHitCount": 1,
+              "sourceReadPathHitCount": 1,
+              "finalCommandHitCount": 1,
+              "toolCommandHitCount": 1,
+              "executedCommandHitCount": 1
+            }
+          }
+        },
+        {
+          "id": "supabase-removal:audit-evidence-lift",
+          "status": "passed",
+          "summary": "brief-plus-audit trace increased final evidence coverage over baseline",
+          "metrics": {
+            "baseline": {
+              "expectedTextCount": 1,
+              "expectedPathCount": 2,
+              "expectedCommandCount": 1,
+              "expectedExecutedCommandCount": 1,
+              "finalTextHitCount": 1,
+              "finalPathHitCount": 2,
+              "toolPathHitCount": 2,
+              "sourceReadPathHitCount": 2,
+              "finalCommandHitCount": 1,
+              "toolCommandHitCount": 1,
+              "executedCommandHitCount": 1
+            },
+            "graph": {
+              "expectedTextCount": 1,
+              "expectedPathCount": 3,
+              "expectedCommandCount": 1,
+              "expectedExecutedCommandCount": 1,
+              "finalTextHitCount": 1,
+              "finalPathHitCount": 3,
+              "toolPathHitCount": 1,
+              "sourceReadPathHitCount": 1,
+              "finalCommandHitCount": 1,
+              "toolCommandHitCount": 1,
+              "executedCommandHitCount": 1
+            }
+          }
+        },
+        {
+          "id": "supabase-removal:source-read-noise",
+          "status": "passed",
+          "summary": "graph-assisted trace did not increase source-read noise",
+          "metrics": {
+            "baseline": {
+              "sourceReadCount": 2,
+              "irrelevantSourceReadCount": 1,
+              "irrelevantSourceReadCommands": [
+                "rg -n \"supabase|SUPABASE|auth.uid\" apps supabase .github"
+              ]
+            },
+            "graph": {
+              "sourceReadCount": 1,
+              "irrelevantSourceReadCount": 0,
+              "irrelevantSourceReadCommands": []
+            }
+          }
+        },
+        {
+          "id": "supabase-removal:unsupported-path-claims",
+          "status": "passed",
+          "summary": "graph-assisted trace did not increase unsupported path claims",
+          "metrics": {
+            "baseline": {
+              "unsupportedPathClaimCount": 0,
+              "unsupportedPathClaims": []
+            },
+            "graph": {
+              "unsupportedPathClaimCount": 0,
+              "unsupportedPathClaims": []
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "failures": []
+}

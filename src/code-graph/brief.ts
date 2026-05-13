@@ -535,7 +535,13 @@ function pathNodeRank(kind: CodeGraphNode["kind"]): number {
 }
 
 function pathsForSlice(slice: GraphSlice): readonly string[] {
-	return uniqueStrings(slice.nodes.flatMap((node) => (node.path === undefined ? [] : [node.path])));
+	return uniqueStrings(slice.nodes.flatMap((node) => (isBriefContextPathNode(node) ? [node.path] : [])));
+}
+
+function isBriefContextPathNode(node: CodeGraphNode): node is CodeGraphNode & { readonly path: string } {
+	if (node.path === undefined) return false;
+	if (node.kind === "Directory" || node.kind === "RepoSnapshot") return false;
+	return node.metadata["readableText"] !== false;
 }
 
 function testPathsForSlice(slice: GraphSlice): readonly string[] {

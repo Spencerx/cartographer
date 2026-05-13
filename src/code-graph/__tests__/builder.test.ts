@@ -599,6 +599,7 @@ describe("buildCodeGraph", () => {
 	});
 
 	test("links local workspace package dependencies by package name", async () => {
+		await mkdir(join(tempDir, "apps/web/src"), { recursive: true });
 		await mkdir(join(tempDir, "packages/shared"), { recursive: true });
 		await mkdir(join(tempDir, "apps/web"), { recursive: true });
 		await writeFile(
@@ -625,6 +626,10 @@ describe("buildCodeGraph", () => {
 				scripts: { typecheck: "tsc --noEmit" },
 			}),
 		);
+		await writeFile(
+			join(tempDir, "apps/web/src/index.ts"),
+			"import { shared } from '@fixture/shared';\nexport const web = shared;\n",
+		);
 
 		const graph = await buildCodeGraph({ root: tempDir });
 		const impact = impactGraph(graph, "package:packages/shared", { maxDepth: 1 });
@@ -639,6 +644,16 @@ describe("buildCodeGraph", () => {
 			),
 		).toBe(true);
 		expect(graph.edges.some((edge) => edge.kind === "DEPENDS_ON" && edge.to === "external:react")).toBe(false);
+		expect(
+			graph.edges.some(
+				(edge) =>
+					edge.kind === "IMPORTS" &&
+					edge.from === "file:apps/web/src/index.ts" &&
+					edge.to === "package:packages/shared" &&
+					edge.label === "@fixture/shared",
+			),
+		).toBe(true);
+		expect(graph.nodes.some((node) => node.id === "external:@fixture/shared")).toBe(false);
 		expect(impact.nodes.some((node) => node.id === "package:apps/web")).toBe(true);
 		expect(impact.nodes.some((node) => node.id === "script:apps/web:typecheck")).toBe(true);
 		expect(impact.summary?.affectedPackages.map((summary) => summary.packageId)).toContain("package:apps/web");

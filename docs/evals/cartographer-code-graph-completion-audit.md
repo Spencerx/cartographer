@@ -1,209 +1,155 @@
-# Cartographer Code Graph Completion Audit
+# Cartographer v2 Master PRD Completion Audit
 
-Status: complete for current objective - smoke, recorded Codex trace, and live Codex evals implemented
+Status: complete for `docs/prds/cartographer-v2-master-prd.md`
 Last updated: 2026-05-12
 
 ## Objective
 
-Strengthen the standalone Cartographer CLI with `$evals`, using `/Users/saint/dev/agent-runtime-kernel` as a read-only test target, and measure whether agent workflows can navigate codebases faster and more durably.
+Implement `docs/prds/cartographer-v2-master-prd.md` in the standalone Cartographer repo.
 
-The objective is complete only when Cartographer itself has:
+This objective is complete only if Cartographer v2 now has:
 
-- a standalone graph CLI and library in this repo
-- a master PRD for Cartographer v2
-- documented eval targets for graph correctness, speed, navigation, and agent adoption
-- read-only external target evidence from ARK
-- runnable eval commands that emit append-only JSON reports
-- at least one generated report proving the smoke profile actually ran
-- a clear boundary between deterministic graph facts and agent semantic overlay guidance
+- default SQLite graph artifacts instead of default full `graph.json`
+- a simplified agent-facing surface around `index`, `brief`, `audit`, `notes`, and explicit `export`
+- bounded briefs with freshness, omissions, validation commands, notes, and source-read guidance
+- removal audit ledgers with Supabase-style evidence-class coverage and fail-closed verification
+- evidence-backed notes with candidate, accepted, stale, and retired lifecycle
+- output brakes for legacy/debug graph commands
+- monorepo package/surface handling and incremental index reuse
+- evals that verify graph contracts, token budgets, brief precision, removal completeness, drift/staleness, security/privacy, monorepo scale, and recorded Codex-style agent outcomes
+- read-only ARK and Axia-style target evidence without writing Cartographer implementation into those repos
 
-## Prompt-To-Artifact Checklist
+## Current Evidence Snapshot
 
-| Requirement | Evidence | Status |
-| --- | --- | --- |
-| Focus only on Cartographer/tooling | Core code now lives in this repo under `src/code-graph`, `src/cli`, `src/core/types.ts`, and `src/shared`. ARK is not the implementation home. | Done |
-| Standalone CLI tool | `package.json` exposes `cartographer` plus `cartographer:index`, `view`, `slice`, `impact`, `context`, `preflight`, `adoption`, `annotate`, and `annotations`. | Done |
-| Master PRD focused on Cartographer v2 | `docs/prds/cartographer-v2-code-graph.md` is now scoped to standalone Cartographer, with ARK and Axia treated only as test repositories. | Done |
-| Include eval targets | `docs/prds/cartographer-v2-code-graph.md` and `docs/evals/cartographer-code-graph-eval-suites.md` define graph correctness, navigation, adoption, task outcome, monorepo, IaC, and semantic overlay targets. | Done as plan |
-| Use ARK as test target base | On 2026-05-12, the standalone CLI indexed `/Users/saint/dev/agent-runtime-kernel` read-only and wrote artifacts to `/tmp/cartographer-ark-codegraph`. No graph artifacts were written inside ARK. | Done as read-only evidence |
-| Measure graph speed | ARK index: 0.41s wall time, 227,573,760 bytes max RSS. ARK live preflight: 368ms total, 353ms graph load, 13ms context build, 2ms prompt render. | Partial - manual evidence only |
-| Measure codebase understanding | ARK preflight for `src/code-graph/commands.ts` surfaced 17 primary paths, 2 focused test paths, 0 findings, and a compact 11-command validation list led by `builder.test.ts`, `commands.test.ts`, and module-level `bun test ./src/code-graph`. The compact payload also records `limits.validationCommands: 20` and `omissions.validationCommands: 103` so evals know broader command data was intentionally withheld. | Partial - one manual target only |
-| Use coding-agent harnesses such as Codex | `eval:cartographer:codex` scores recorded Codex-style `RuntimeEvent[]` fixtures, and `eval:cartographer:codex:live` runs `codex exec --json --ephemeral` in read-only mode. The live run used Cartographer preflight against ARK, then executed `bun test src/code-graph/__tests__/adoption.test.ts`, with 0 source reads before graph context. | Done |
-| Produce runnable eval reports | `scripts/cartographer-code-graph-evals.ts` exists, `package.json` exposes `eval:cartographer`, `eval:cartographer:smoke`, `eval:cartographer:baseline`, `eval:cartographer:codex`, and `eval:cartographer:codex:live`. Passing reports exist for smoke, recorded Codex, and live Codex profiles. | Done |
-| Keep deterministic graph separate from semantic overlay | CLI supports deterministic graph artifacts plus candidate/reviewed overlay annotations. PRD and feature docs state that overlays cannot rescue missing graph facts. | Done |
-| Verify current implementation | `bun run typecheck`, `bun test src/code-graph --timeout 120000`, and standalone self-index passed after the repo split. | Done |
-
-## Current Read-Only ARK Evidence
-
-Command:
+Latest local verification commands:
 
 ```bash
-/usr/bin/time -l bun run cartographer:index -- \
-  --root /Users/saint/dev/agent-runtime-kernel \
-  --out /tmp/cartographer-ark-codegraph \
-  --max-file-bytes 500000
-```
-
-Result:
-
-- root: `/Users/saint/dev/agent-runtime-kernel`
-- output: `/tmp/cartographer-ark-codegraph`
-- git: dirty at `02e1d424803e`
-- files: 669
-- nodes: 4,620
-- edges: 10,049
-- findings: 0
-- wall time: 0.41s
-- max RSS: 227,573,760 bytes
-
-Edge highlights:
-
-- `TESTS`: 835
-- `IMPORTS`: 2,000
-- `TYPE_IMPORTS`: 1,177
-- `EXPORTS`: 1,351
-- `USES_ENV`: 111
-- `TABLE_REFERENCES_TABLE`: 37
-
-Latest compact live preflight command:
-
-```bash
-bun run cartographer:preflight -- \
-  --root /Users/saint/dev/agent-runtime-kernel \
-  --live \
-  --path src/code-graph/commands.ts \
-  --out /tmp/cartographer-ark-codegraph \
-  --json
-```
-
-Result after compact validation-command filtering:
-
-- duration: 340ms
-- graph load: 327ms
-- context build: 12ms
-- prompt render: 1ms
-- primary paths: 17
-- test paths: 2
-- validation commands: 11, down from the earlier 114-command compact list
-- validation command limit: 20
-- omitted validation commands: 103
-- findings: 0
-
-Focused paths surfaced:
-
-- `src/code-graph/commands.ts`
-- `src/code-graph/builder.ts`
-- `src/code-graph/context.ts`
-- `src/code-graph/preflight.ts`
-- `src/code-graph/query.ts`
-- `src/code-graph/types.ts`
-- `src/code-graph/__tests__/commands.test.ts`
-- `src/code-graph/__tests__/builder.test.ts`
-
-Focused validation commands surfaced first:
-
-- `bun test ./src/code-graph/__tests__/builder.test.ts`
-- `bun test ./src/code-graph/__tests__/commands.test.ts`
-- `bun test ./src/code-graph`
-
-Safe broad validation commands retained:
-
-- `bun run test`
-- `bun run typecheck`
-- `bun run lint`
-- `bun run lint:eslint`
-- `bun run verify`
-
-Long-running or environment-heavy broad commands such as watch/live variants are omitted from compact preflight context. Full context still retains complete command data for tooling that needs it.
-
-Important note: ARK was already dirty on branch `garden/wave-2e-broker-context` before and after this read-only test-target run. The Cartographer command wrote to `/tmp`, not to the ARK repo.
-
-## Current Cartographer Verification
-
-Latest verified commands in the standalone Cartographer repo:
-
-```bash
+git diff --check
 bun run typecheck
-bun test src/code-graph --timeout 120000
-bun run cartographer:index -- --root . --out /tmp/cartographer-plugin-codegraph --max-file-bytes 500000
+bun test src/code-graph
 bun run eval:cartographer:smoke
 bun run eval:cartographer:codex
-bun run eval:cartographer:codex:live
 ```
 
 Results:
 
-- TypeScript typecheck passed.
-- Graph tests passed: 63 pass, 0 fail, 1,418 assertions.
-- Self-index passed: 64 files, 791 nodes, 1,118 edges, 0 findings.
-- Smoke eval passed and wrote `docs/reports/cartographer-code-graph-smoke-2026-05-12T00-18-52-454Z.json`.
-- Recorded Codex trace eval passed and wrote `docs/reports/cartographer-code-graph-codex-2026-05-12T00-23-23-289Z.json`.
-- Live Codex eval passed and wrote `docs/reports/cartographer-code-graph-codex-live-2026-05-12T00-28-27-531Z.json`.
+- `git diff --check`: passed.
+- `bun run typecheck`: passed.
+- `bun test src/code-graph`: 77 pass, 0 fail, 1,984 assertions.
+- `bun run eval:cartographer:smoke`: passed, wrote `docs/reports/cartographer-code-graph-smoke-2026-05-12T23-56-46-019Z.json`.
+- `bun run eval:cartographer:codex`: passed, wrote `docs/reports/cartographer-code-graph-codex-2026-05-12T23-56-46-017Z.json`.
 
-## Current Smoke Eval Evidence
+Fresh direct CLI audit output:
 
-Report:
+- `bun run cartographer:index -- --root /Users/saint/Dev/cartographer-plugin --out /tmp/cartographer-self-audit.R8lVr4 --max-file-bytes 500000`
+- `bun run cartographer:verify -- --out /tmp/cartographer-self-audit.R8lVr4 --root /Users/saint/Dev/cartographer-plugin --fresh --json`
+- `bun run cartographer:brief -- --out /tmp/cartographer-self-audit.R8lVr4 --path src/code-graph/commands.ts --mode implementation --json --budget 8000`
+- `bun run cartographer:export -- graph --from /tmp/cartographer-self-audit.R8lVr4 --format jsonl --out /tmp/cartographer-self-audit.R8lVr4/exports`
+- `bun run cartographer:audit -- removal --out /tmp/cartographer-self-audit.R8lVr4 --target OPENROUTER --write /tmp/cartographer-self-audit.R8lVr4/audits/openrouter-removal.json --json`
+- `bun run cartographer:audit -- verify --ledger /tmp/cartographer-self-audit.R8lVr4/audits/openrouter-removal.json --fail-on-leftovers --json`
+- `bun run cartographer:notes -- audit --out /tmp/cartographer-self-audit.R8lVr4 --json`
 
-- path: `docs/reports/cartographer-code-graph-smoke-2026-05-12T00-18-52-454Z.json`
-- status: `passed`
-- duration: 844ms
-- failures: 0
+Direct CLI findings:
 
-Suites:
+- Default index wrote `manifest.json`, `graph.sqlite`, `notes.jsonl`, JSON schemas, and `CODEBASE_MAP.md`; it did not write default `graph.json`.
+- SQLite integrity check returned `ok`; table counts included 223 nodes, 511 edges, 1,153 typed symbol rows, 133 file membership rows, and 133 index cache rows.
+- `verify --fresh` reported zero node, edge, finding, and annotation drift between persisted and live graph.
+- Path brief for `src/code-graph/commands.ts` reported dirty-state freshness, exact anchor, read-first paths, impact paths, tests, validation commands, omissions, source-read-required guidance, and 3,196 estimated tokens under an 8,000-token request.
+- Explicit JSONL export wrote `nodes.jsonl` and `edges.jsonl`; explicit debug export wrote `graph.debug.json`.
+- Removal audit produced a ledger with evidence classes, replacement requirements, validation receipts, and blockers.
+- `audit verify --fail-on-leftovers` failed closed with active leftovers.
+- `notes audit` produced a valid empty-note audit with zero issues.
 
-- `graph-contract:self`: 63 files, 789 nodes, 1,116 edges, 0 findings, no duplicate IDs, no dangling edges, ignored paths excluded, no raw env values.
-- `graph-contract:ark`: 669 files, 4,620 nodes, 10,049 edges, 0 findings, no duplicate IDs, no dangling edges, ignored paths excluded, no raw env values.
-- `ark-preflight`: target path present, focused tests present, focused validation commands first, compact validation command limit recorded as 20 with 103 omitted commands, timing phases recorded.
+## Prompt-To-Artifact Checklist
 
-The ARK target run remained read-only. Graph artifacts were written under `/tmp/cartographer-code-graph-evals`, not inside `/Users/saint/dev/agent-runtime-kernel`.
+| PRD requirement | Concrete evidence | Status |
+| --- | --- | --- |
+| Master PRD is source of truth | `docs/prds/cartographer-v2-master-prd.md` exists and supersedes `docs/prds/cartographer-v2-code-graph.md`; the older PRD states it is historical context. | Done |
+| Product boundary: deterministic evidence compiler, not agent manager | README and `cartographer-v2` skill describe Cartographer as deterministic evidence tooling; no code spawns subagents or owns task plans. | Done |
+| Simplified command spine | `package.json` exposes `cartographer:index`, `brief`, `audit`, `notes`, and `export`; README lists these as core commands. | Done |
+| Advanced/debug commands demoted | README and help list `slice`, `impact`, `context`, `preflight`, `adoption`, `annotate`, and `annotations` as compatibility/debug/legacy surfaces. | Done |
+| `index` writes SQLite by default | Direct `/tmp/cartographer-self-audit.R8lVr4` index wrote `graph.sqlite` and no default `graph.json`; `src/code-graph/__tests__/commands.test.ts` asserts the same. | Done |
+| `manifest.json` and schema artifacts | Direct index wrote `manifest.json`, `schema/brief.schema.json`, `schema/audit-ledger.schema.json`, and `schema/notes.schema.json`. | Done |
+| `view` reads persisted graph | Direct `cartographer:view --out /tmp/cartographer-self-audit.R8lVr4 --json` returned graph totals from the persisted artifact. | Done |
+| `verify` validates SQLite and freshness | Direct `verify --fresh --json` returned `ok: true` and zero live/persisted diff; graph-contract eval includes SQLite artifact compatibility. | Done |
+| `brief` is primary agent interface | `src/code-graph/brief.ts`, `src/code-graph/commands.ts`, README, and skill docs make `brief` the normal interface. | Done |
+| Brief anchors: path, package, env, DB, IaC, audit, changed | Command tests cover env, DB, IaC, and changed anchors; direct CLI checked path, package, env, and changed; audit-anchor behavior is covered by eval/command tests. | Done |
+| Brief modes | `commands.ts` supports `planning`, `implementation`, `review`, and `prd`; direct path/package/env checks exercised multiple modes. | Done |
+| Brief budgets and omission metadata | Direct path brief reported `requestedTokens: 8000`, `estimatedTokens: 3196`, `truncated: true`, and readFirst omission metadata. | Done |
+| Brief JSON and prompt renderers | Command tests and `brief-packet:self` eval verify JSON; README/help expose prompt/JSON format. | Done |
+| Brief includes freshness, dirty state, validation, notes, findings, source-read instruction | Direct path brief included `fresh-with-dirty-worktree`, validation commands, notes, findings, omissions, and `sourceReadRequired: true`. | Done |
+| Normal `slice`, `impact`, `context`, `preflight` are bounded | `cli-output-brakes:ark` passed: default ARK impact 4,107 estimated tokens, default context 3,897 estimated tokens, depth above 2 fails without explicit escape hatch. | Done |
+| Full nested graph payload requires debug intent | `commands.ts` gates debug graph payloads behind `--debug-graph`; explicit export is required for debug JSON/JSONL. | Done |
+| `export graph` explicit debug JSON/JSONL | Direct export with `--from /tmp/cartographer-self-audit.R8lVr4` wrote `nodes.jsonl`, `edges.jsonl`, and `graph.debug.json`. | Done |
+| Removal audit ledger | Direct `audit removal --target OPENROUTER` produced `cartographer.audit-ledger.v1`; Supabase fixture eval verifies the target workflow. | Done |
+| Removal evidence classes | Latest `removal-audit:fixture` seeds and finds 21 Supabase-style classes with 1.0 recall. | Done |
+| Removal replacement requirements and validation receipts | `removal-audit:fixture` verifies auth/database replacement requirements plus discovered validation receipts. | Done |
+| `audit verify --live`/fresh default and fail-closed behavior | Command tests verify live-by-default behavior; direct `audit verify --fail-on-leftovers` exited 1 with active blockers. | Done |
+| Notes ingest/audit/accept/retire | `notes-lifecycle:fixture` and command tests cover ingest, audit, accept, stale-after-drift, and retire paths. | Done |
+| Accepted notes in briefs, stale notes as warnings | Command tests assert accepted notes appear in `brief`, then evidence drift moves them to stale. | Done |
+| Symbols are typed records, not graph nodes | `graph-contract:self` and `graph-contract:ark` include `symbols-are-typed-facts`: 0 symbol graph nodes, 0 `DEFINES` edges, typed symbol facts present. | Done |
+| Findings are records, not graph nodes | `findings` are stored separately in `graph.sqlite`; `Finding` is not a node kind in `types.ts` or schema. | Done |
+| Agent annotations are notes/overlays, not graph facts | `AgentAnnotation` remains an internal legacy type name, but annotations are stored as overlay/notes records and not graph nodes; `notes` is the product surface. | Done |
+| Normalized provenance | `graph-contract:*` checks `manifest-default-provenance` and precise confidence vocabulary; SQLite includes `provenance_classes` plus evidence join tables. | Done |
+| File membership and monorepo surface records | SQLite includes `file_membership`; monorepo-scale fixture verifies package membership, generated surface, bounded package brief, and membership in brief records. | Done |
+| Incremental index reuse | Command tests verify unchanged repo reuse through the SQLite file-hash cache; direct SQLite audit found `index_cache` populated for 133 files. | Done |
+| Local workspace package imports | Builder test now imports `@fixture/shared` from `apps/web/src/index.ts` and verifies it links to `package:packages/shared`, not `external:@fixture/shared`. | Done |
+| Output path noise control | `brief.ts` and `context.ts` filter directory/unreadable paths; Axia package brief evidence records no full graph payload and controlled read-first output. | Done |
+| Security/privacy | Graph contract checks raw env secret values are absent; removal fixture includes CI secret-name detection without secret values; safe validation filters exclude destructive commands. | Done |
+| ARK read-only target | Latest smoke/Codex reports include `graph-contract:ark`, `ark-preflight`, and `cli-output-brakes:ark`; artifacts are written under `/tmp`, not ARK. | Done |
+| Axia-style monorepo target | `docs/evals/cartographer-code-graph-eval-suites.md` records a 2026-05-12 read-only Axia run with index, verify, and package brief evidence under `/tmp`. | Done |
 
-## Current Recorded Codex Trace Evidence
+## Eval Checklist
 
-Report:
+| PRD eval suite | Evidence | Status |
+| --- | --- | --- |
+| Graph Store Contract | Latest smoke and Codex reports include `graph-contract:self` and `graph-contract:ark`, each with 10 passing checks: schema, unique IDs, edge endpoints, typed symbols, provenance vocabulary, manifest default provenance, SQLite artifacts, ignored paths, and env secret values. | Done |
+| Token Efficiency | `cli-output-brakes:ark` passes under the current ARK target: impact 4,107 estimated tokens, context 3,897 estimated tokens, and depth cap fails closed. | Done |
+| Brief Context Precision | `brief-context-precision:fixture` passes: top-10 and top-20 recall 1.0, 6 emitted paths, 1,513 estimated tokens, no hallucinated paths, validation command recall present. | Done |
+| Removal Audit Fixture | `removal-audit:fixture` passes with 1.0 recall across 21 Supabase-style classes and fail-on-leftovers blockers for every active class. | Done |
+| Agent Baseline Comparison | `codex-trace-adoption` and `codex-trace-outcomes` pass with `baseline-direct`, `cartographer-brief`, and `cartographer-brief-plus-audit` conditions. | Done |
+| Drift And Staleness | `notes-lifecycle:fixture` passes candidate ingest, grounded accept, and stale-after-drift checks; `verify --fresh` direct CLI check passes. | Done |
+| Security And Privacy | Graph contracts check no env secret values; removal fixture covers CI secret names; validation safety filters exclude deploy/apply/reset/seed/start/dev/preview/postinstall by default. | Done |
+| Monorepo Scale | `monorepo-scale:fixture` passes package membership, generated surface, bounded package brief, and membership fields. Axia read-only stress evidence is documented. | Done |
 
-- path: `docs/reports/cartographer-code-graph-codex-2026-05-12T00-23-23-289Z.json`
-- status: `passed`
-- duration: 787ms
-- failures: 0
+## Phase Checklist
 
-Trace cases:
+| PRD phase | Evidence | Status |
+| --- | --- | --- |
+| Phase 0: product surface reset | README, skill docs, help text, and master PRD describe `index`, `brief`, `audit`, `notes`, `export`; legacy surfaces are demoted. | Done |
+| Phase 1: output brakes and `brief` | `brief.ts`, `commands.ts`, direct brief output, tests, and `cli-output-brakes:ark` cover modes, budgets, caps, omissions, freshness, JSON/prompt output, and debug escape hatches. | Done |
+| Phase 2: schema diet | Symbol nodes and `DEFINES` edges are removed from normal graph facts; findings and annotations are records; ownership is derived through package/file membership. CI workflow facts are also stored in typed `ci_facts`; legacy CI graph nodes remain only as deterministic compatibility/debug records, not as a core agent prompt surface. | Done |
+| Phase 3: normalize provenance | Manifest default provenance, provenance classes, evidence tables, and confidence vocabulary are implemented and covered by graph-contract evals. | Done |
+| Phase 4: SQLite durable store | `graph.sqlite`, `manifest.json`, SQLite read path, verification, view, brief, and explicit export are implemented and verified. | Done |
+| Phase 5: removal audit plus ledger | Removal ledger schema, evidence classes, replacement requirements, validation receipts, live verification, fail-on-leftovers, and reports are implemented and evaluated. | Done |
+| Phase 6: notes | Ingest, audit, accept, retire, evidence hashes, stale detection, and brief injection are implemented and tested. | Done |
+| Phase 7: incremental indexing and monorepo scale | File-hash cache, extractor-version invalidation, file membership, surface classification, generated/vendor controls, and monorepo evals are implemented. | Done |
+| Phase 8: agent harness and outcome evals | Recorded Codex-style adoption and outcome suites pass; live Codex remains explicitly opt-in by design. | Done |
 
-- `codex-baseline-builder`: `baseline-direct`, expected no graph adoption, 3 source reads before graph, final file/command expectations passed, executed `bun test src/code-graph/__tests__/builder.test.ts`.
-- `codex-graph-mandated-builder`: `graph-mandated`, graph command at 0ms, 0 source reads before graph, graph-first gate passed, final file/command expectations passed, executed `bun test src/code-graph/__tests__/builder.test.ts`.
-- `codex-graph-prompted-adoption`: `graph-prompted`, graph command at 0ms, 0 source reads before graph, graph-first gate passed, final file/command expectations passed, executed `bun test src/code-graph`.
+## Reviewed Non-Blockers
 
-These are recorded `RuntimeEvent[]` fixtures under `.evals/fixtures/codex-traces`. They make the adoption and codebase-understanding gates repeatable, but they are not fresh live Codex runs.
+- `annotate` and `annotations` still exist as legacy compatibility shims. This is allowed by the PRD's advanced/legacy command section, and daily docs point users to `notes`.
+- `AgentAnnotation` remains an internal type name for legacy overlay records. It is not a graph node and is surfaced through `notes`.
+- CI workflow/job/run-step facts still have deterministic compatibility graph records in debug/slice surfaces, while SQLite also stores them in `ci_facts`. This preserves existing selectors without making CI a normal agent prompt dump.
+- `SERVICE_QUERIES_TABLE` and `SERVICE_CALLS_RPC` remain because they are parser-backed explicit data-access evidence with provenance, not claimed deep call graph precision.
+- `CODEBASE_MAP.md` is still generated by default. The PRD leaves this as an open product question and states the human map is optional; it is not the durable or agent-facing graph artifact.
+- Validation receipts are ledger records, not a task runner. Existing receipt status is preserved during verification through ledger merge behavior.
 
-## Current Live Codex Evidence
+## Missing Or Unverified Items
 
-Report:
+No required PRD launch item remains missing after the current audit.
 
-- path: `docs/reports/cartographer-code-graph-codex-live-2026-05-12T00-28-27-531Z.json`
-- status: `passed`
-- duration: 11,981ms
-- failures: 0
+Future work that is explicitly outside the v2 launch scope:
 
-Live checks:
-
-- `codex-exit`: `codex exec --json --ephemeral` exited 0 in read-only mode.
-- `live-graph-adoption`: Codex used `cartographer:preflight` against `/Users/saint/dev/agent-runtime-kernel`, with 0 source reads before graph use.
-- `live-graph-first`: graph-first gate passed.
-- `live-expectations`: final answer included `CODEX_LIVE_CARTOGRAPHER_OK`, `src/code-graph/adoption.ts`, and `bun test src/code-graph/__tests__/adoption.test.ts`; the trace also executed that validation command.
-
-The raw live JSONL was written under `/tmp/cartographer-code-graph-evals/.../codex-live.jsonl`. ARK remained a read-only target; graph output went under `/tmp`.
-
-## Missing Work
-
-The current objective is complete. Future expansion candidates are:
-
-- structured task fixtures converted from `.evals/research/cartographer-gold-task-candidates.md`
-- baseline profile semantics beyond the current deterministic contract checks
-- calibrated judge prompt and human labels for semantic overlay usefulness
+- compiler/LSP/SCIP-backed deep call graph precision
+- cloud/runtime drift checks
+- vector memory
+- autonomous Cartographer agent orchestration
+- LLM annotation as a normal workflow
+- live Codex distribution claims beyond the explicit opt-in live profile
 
 ## Completion Verdict
 
-Complete for the current objective.
+Complete.
 
-The standalone CLI, PRD, deterministic smoke eval runner, recorded Codex trace profile, live Codex eval profile, package scripts, and reports are in place. The CLI has proven it can index ARK as a read-only external test target and write append-only reports from this repo.
-
-Remaining work is future expansion, not a blocker for this objective: richer baseline distributions and calibrated semantic-overlay judging.
+The standalone Cartographer v2 implementation now satisfies the master PRD launch criteria: deterministic SQLite index, bounded briefs, removal audit ledgers, notes lifecycle, explicit debug exports, monorepo controls, ARK/Axia read-only evidence, and passing smoke/Codex eval reports.
